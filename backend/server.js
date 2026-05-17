@@ -13,6 +13,28 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ==========================================
+// DATABASE CONNECTION MIDDLEWARE (must run BEFORE route handlers)
+// ==========================================
+const MONGO_URI = process.env.MONGO_URI;
+let isConnected = false;
+const connectDb = async () => {
+    if (isConnected) return;
+    try {
+        const db = await mongoose.connect(MONGO_URI);
+        isConnected = db.connections[0].readyState === 1;
+        console.log('✅ Connected to MongoDB Atlas cluster seamlessly.');
+    } catch (err) {
+        console.error('❌ Database Initialization Fault:', err.message);
+    }
+};
+
+// Middleware interceptor to verify active database availability before processing any serverless function request
+app.use(async (req, res, next) => {
+    await connectDb();
+    next();
+});
+
 // Global schedule window pointer matching Section 2.3 criteria
 let GLOBAL_ACTIVE_PERIOD = "Phase 1 — Goal Setting";
 
@@ -35,7 +57,7 @@ app.post('/api/goalsheets', async (req, res) => {
     try {
         const { goals, totalWeightage } = req.body;
         
-        if (totalWeightage !== 100) return res.status(400).json({ error: 'System Exception: Combined total weightage must equal exactly 100%.' });
+        if (Math.round(Number(totalWeightage)) !== 100) return res.status(400).json({ error: 'System Exception: Combined total weightage must equal exactly 100%.' });
         if (goals.length > 8) return res.status(400).json({ error: 'System Exception: Maximum ceiling of 8 goals allowed per profile.' });
         if (goals.some(g => Number(g.weightage) < 10)) return res.status(400).json({ error: 'System Exception: Minimum floor weightage per metric is 10%.' });
 
@@ -49,7 +71,8 @@ app.post('/api/goalsheets', async (req, res) => {
         const savedSheet = await newSheet.save();
         res.status(201).json({ message: 'Goal Portfolio locked and transmitted to L1 Queue!', data: savedSheet });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to process initialization sequence.' });
+        console.error('POST /api/goalsheets error:', error);
+        res.status(500).json({ error: 'Failed to process initialization sequence.', details: error.message });
     }
 });
 
@@ -408,29 +431,7 @@ app.get('/api/admin/analytics', async (req, res) => {
     }
 });
 
-// ==========================================
-// SERVERLESS MONGO CONNECTION HOOKS
-// ==========================================
-const MONGO_URI = process.env.MONGO_URI;
-
-// Cached active connection instance state
-let isConnected = false;
-const connectDb = async () => {
-    if (isConnected) return;
-    try {
-        const db = await mongoose.connect(MONGO_URI);
-        isConnected = db.connections[0].readyState === 1;
-        console.log('✅ Connected to MongoDB Atlas cluster seamlessly.');
-    } catch (err) {
-        console.error('❌ Database Initialization Fault:', err.message);
-    }
-};
-
-// Middleware interceptor to verify active database availability before processing any serverless function request
-app.use(async (req, res, next) => {
-    await connectDb();
-    next();
-});
+// (Database connection middleware moved to top of file, before route handlers)
 
 // Fallback port listener execution only during standalone terminal operations
 if (process.env.NODE_ENV !== 'production') {

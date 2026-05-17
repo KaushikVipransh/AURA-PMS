@@ -135,16 +135,20 @@ export default function EmployeeDashboard() {
       const response = await fetch(url, {
         method: isReturned ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goals: sanitizedGoals, totalWeightage })
+        body: JSON.stringify({ goals: sanitizedGoals, totalWeightage: Math.round(totalWeightage) })
       });
       
       if (response.ok) {
         alert('🎉 Goal Sheet locked and submitted successfully for L1 Verification Review!');
         localStorage.removeItem('atomquest_role');
         navigate('/');
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        alert(`❌ Submission failed: ${errData.error || errData.details || 'Server error ' + response.status}`);
       }
     } catch (error) {
-      console.error(error);
+      console.error('Submit error:', error);
+      alert('❌ Network error: Could not reach the server. Please try again.');
     }
   };
 
