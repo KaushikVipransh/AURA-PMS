@@ -26,15 +26,18 @@ const connectDb = async () => {
         return true;
     }
     try {
-        // Append database name if not already present
         let uri = MONGO_URI;
-        if (uri && !uri.includes('mongodb.net/aurapms')) {
-            uri = uri.replace('mongodb.net/', 'mongodb.net/aurapms');
+        // Ensure database name is present in connection URI
+        if (uri && uri.includes('mongodb.net/?')) {
+            uri = uri.replace('mongodb.net/?', 'mongodb.net/aurapms?');
+        } else if (uri && uri.includes('mongodb.net/') === false) {
+            uri = uri.replace('mongodb.net', 'mongodb.net/aurapms');
         }
         await mongoose.connect(uri, {
-            serverSelectionTimeoutMS: 5000,
-            connectTimeoutMS: 5000,
-            socketTimeoutMS: 10000,
+            serverSelectionTimeoutMS: 30000,
+            connectTimeoutMS: 30000,
+            socketTimeoutMS: 45000,
+            retryWrites: true,
         });
         isConnected = true;
         console.log('✅ Connected to MongoDB Atlas cluster seamlessly.');
