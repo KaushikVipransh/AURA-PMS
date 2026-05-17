@@ -69,7 +69,6 @@ let GLOBAL_ACTIVE_PERIOD = "Phase 1 — Goal Setting";
 // ==========================================
 // A. CORE SITE ROOT & SYSTEM HEALTH
 // ==========================================
-// Added root routing handling mechanism to provide a valid return handshake for direct browser views
 app.get('/', (req, res) => {
     res.status(200).send("AuraPMS Core Production API Engine operating securely inside Vercel Serverless Gateway Core.");
 });
@@ -459,7 +458,22 @@ app.get('/api/admin/analytics', async (req, res) => {
     }
 });
 
-// (Database connection middleware moved to top of file, before route handlers)
+// ==========================================
+// S. DEMO CONTROLLER: SYSTEM FLUSH & RESET
+// ==========================================
+app.delete('/api/admin/reset-demo', async (req, res) => {
+    try {
+        // Direct absolute purging of dependent collections
+        await GoalSheet.deleteMany({});
+        await AuditLog.deleteMany({});
+        await Escalation.deleteMany({});
+        
+        res.status(200).json({ message: 'System collection layers successfully flushed to zero state!' });
+    } catch (error) {
+        console.error('DELETE /api/admin/reset-demo error:', error);
+        res.status(500).json({ error: 'Failed to execute system flush sequence.', details: error.message });
+    }
+});
 
 // Fallback port listener execution only during standalone terminal operations
 if (process.env.NODE_ENV !== 'production') {

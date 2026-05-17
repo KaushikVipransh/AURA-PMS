@@ -163,6 +163,25 @@ export default function AdminPanel() {
     document.body.removeChild(link);
   };
 
+  // --- DEMO LIFECYCLE CONTROLLER: RESET AND SYSTEM PURGE ---
+  const handleResetDemoData = async () => {
+    const confirmFlush = window.confirm("🚨 DEMO DATA PURGE WARNING:\nAre you sure you want to flush all database collections back to a blank zero-state for live evaluation testing?");
+    if (!confirmFlush) return;
+
+    try {
+      const response = await fetch('https://aurapms-backend.vercel.app/api/admin/reset-demo', { method: 'DELETE' });
+      if (response.ok) {
+        alert("🧹 Database collections successfully purged! The system is now a complete blank slate for your user journey testing.");
+        fetchInitialAdminData();
+      } else {
+        alert("Failed to reset database layer parameters cleanly.");
+      }
+    } catch (error) {
+      console.error("Reset trace error:", error);
+      alert("Network timeout fault parsing reset commands.");
+    }
+  };
+
   const totalProfiles = sheets.length;
   const totalCompletedCheckins = sheets.filter(s => s.goals?.every(g => g.status === 'Completed' || g.status === 'On Track')).length;
   const pendingCheckinsCount = totalProfiles - totalCompletedCheckins;
@@ -181,6 +200,10 @@ export default function AdminPanel() {
             <p className="text-[#78716C] mt-1 text-sm">Export organizational achievements, track compliance ratios, and view absolute audit changes.</p>
           </div>
           <div className="flex gap-3">
+            {/* INJECTED SYSTEM RESET INTERFACE TRIGGER */}
+            <Button onClick={handleResetDemoData} className="bg-[#B54D4D] hover:bg-[#963E3E] text-white text-xs font-semibold px-4 shadow-warm-sm">
+              🧹 Reset System Demo
+            </Button>
             <Button onClick={handleExportCSV} className="bg-[#5B8C5A] hover:bg-[#4A7A49] text-white text-xs font-semibold px-4 shadow-warm-sm">
               📥 Export Report (CSV)
             </Button>
@@ -299,11 +322,15 @@ export default function AdminPanel() {
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            {/* System Profiles Queue */}
+            {/* Sheets List */}
             <div className="space-y-3 animate-slide-up animate-delay-3">
               <h2 className="text-base font-semibold text-[#A8A29E]">System Activity Logs</h2>
               {loading ? (
                 <p className="text-[#57534E] text-xs animate-fade-in">Accessing data fields...</p>
+              ) : sheets.length === 0 ? (
+                <div className="p-6 text-center text-xs font-mono border border-dashed border-[#332F2B] rounded-xl text-[#57534E] bg-[#242220]">
+                  No operational metrics loaded. System ready for seed injection routines.
+                </div>
               ) : (
                 sheets.map((sheet) => (
                   <div key={sheet._id} className="p-4 bg-[#242220] border border-[#332F2B] rounded-xl flex items-center justify-between hover:border-[#44403C] transition-colors">
