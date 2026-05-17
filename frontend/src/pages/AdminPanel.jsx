@@ -163,13 +163,17 @@ export default function AdminPanel() {
     document.body.removeChild(link);
   };
 
-  // --- DEMO LIFECYCLE CONTROLLER: RESET AND SYSTEM PURGE ---
+ // --- DEMO LIFECYCLE CONTROLLER: RESET AND SYSTEM PURGE ---
   const handleResetDemoData = async () => {
     const confirmFlush = window.confirm("🚨 DEMO DATA PURGE WARNING:\nAre you sure you want to flush all database collections back to a blank zero-state for live evaluation testing?");
     if (!confirmFlush) return;
 
     try {
-      const response = await fetch('https://aurapms-backend.vercel.app/api/admin/reset-demo', { method: 'DELETE' });
+      // Swapped method context to POST to align smoothly with your serverless infrastructure maps
+      const response = await fetch('https://aurapms-backend.vercel.app/api/admin/reset-demo', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
       if (response.ok) {
         alert("🧹 Database collections successfully purged! The system is now a complete blank slate for your user journey testing.");
         fetchInitialAdminData();

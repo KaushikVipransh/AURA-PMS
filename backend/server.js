@@ -461,16 +461,20 @@ app.get('/api/admin/analytics', async (req, res) => {
 // ==========================================
 // S. DEMO CONTROLLER: SYSTEM FLUSH & RESET
 // ==========================================
-app.delete('/api/admin/reset-demo', async (req, res) => {
+// Transformed to an explicit POST route to ensure robust firewall/gateway traversal on Vercel
+app.post('/api/admin/reset-demo', async (req, res) => {
     try {
-        // Direct, absolute database collection-level truncation to bypass Mongoose model locks
-        await mongoose.connection.db.collection('goalsheets').deleteMany({});
-        await mongoose.connection.db.collection('auditlogs').deleteMany({});
-        await mongoose.connection.db.collection('escalations').deleteMany({});
+        // Explicitly force connection availability inside the handler scope
+        await connectDb();
+        
+        // Target collection structures directly using Mongoose models to guarantee atomic deletion drops
+        await GoalSheet.deleteMany({});
+        await AuditLog.deleteMany({});
+        await Escalation.deleteMany({});
         
         res.status(200).json({ message: 'System collection layers successfully flushed to zero state!' });
     } catch (error) {
-        console.error('DELETE /api/admin/reset-demo error:', error);
+        console.error('POST /api/admin/reset-demo error:', error);
         res.status(500).json({ error: 'Failed to execute system flush sequence.', details: error.message });
     }
 });
