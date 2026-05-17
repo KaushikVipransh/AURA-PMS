@@ -21,7 +21,7 @@ export default function EmployeeDashboard() {
   const [existingSheet, setExistingSheet] = useState(null);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [editingGoalId, setEditingGoalId] = useState(null);
+
 
   useEffect(() => {
     fetchActiveSheet();
@@ -105,7 +105,6 @@ export default function EmployeeDashboard() {
       return alert("🚫 Access Denied: Departmental Shared KPIs are corporate mandates.");
     }
     setGoals(goals.filter(goal => (goal._id !== id && goal.id !== id)));
-    if (editingGoalId === id) setEditingGoalId(null);
   };
 
   const handleInlineGoalFieldChange = (index, field, value) => {
@@ -348,7 +347,7 @@ export default function EmployeeDashboard() {
                     ))}
                   </div>
                   <div className="mt-6 pt-6 border-t border-[#E8E4DD] flex justify-end">
-                    <Button size="lg" onClick={handleSubmitSheet} disabled={totalWeightage !== 100 || editingGoalId !== null} className={totalWeightage === 100 ? 'bg-[#5B8C5A] hover:bg-[#4A7A49] text-white font-semibold shadow-warm-sm' : 'bg-[#E8E4DD] text-[#A8A29E] shadow-none'}>Lock and Transmit Goal Sheet to L1</Button>
+                    <Button size="lg" onClick={handleSubmitSheet} disabled={Math.round(totalWeightage) !== 100} className={`${Math.round(totalWeightage) === 100 ? 'bg-[#5B8C5A] hover:bg-[#4A7A49] text-white font-semibold shadow-warm-sm cursor-pointer' : 'bg-[#E8E4DD] text-[#A8A29E] shadow-none cursor-not-allowed'}`}>Lock and Transmit Goal Sheet to L1</Button>
                   </div>
                 </CardContent>
               </Card>

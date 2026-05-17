@@ -30,7 +30,7 @@ export default function ManagerWorkspace() {
     try {
       const response = await fetch('https://aurapms-backend.vercel.app/api/goalsheets');
       const data = await response.json();
-      setGoalSheets(data || []);
+      setGoalSheets(Array.isArray(data) ? data : []);
       
       if (data && data.length > 0) {
         setSharedKpi(prev => ({ ...prev, primaryOwnerName: data[0].employeeName }));
@@ -291,7 +291,7 @@ export default function ManagerWorkspace() {
                     )}
 
                     {sheet.approvalStatus === 'Approved' && (
-                      <div className="border-t border-[#E8E4DD] pt-3.5 space-y-2">
+                      <div className="border-t border-[#E8E4DD] pt-3.5 space-y-3">
                         <Label className="text-xs font-bold uppercase tracking-wider text-[#A8A29E]">Add Structured Check-In Comment</Label>
                         <div className="flex gap-2">
                           <textarea 
@@ -302,6 +302,26 @@ export default function ManagerWorkspace() {
                           />
                           <Button size="sm" className="bg-[#1C1917] hover:bg-[#332F2B] text-white font-semibold h-14 px-4 shadow-warm-sm" onClick={() => handlePostDiscussionNote(sheet._id)}>Log Comment</Button>
                         </div>
+
+                        {/* Continuous Dialogue Discussion Log History */}
+                        {sheet.checkInDiscussions && sheet.checkInDiscussions.length > 0 && (
+                          <div className="mt-2 space-y-1.5 max-h-44 overflow-y-auto rounded-lg border border-[#F0ECE4] bg-[#FAFAF7] p-3">
+                            <span className="text-[10px] uppercase font-bold tracking-wider text-[#A8A29E] block mb-2">Discussion History ({sheet.checkInDiscussions.length})</span>
+                            {sheet.checkInDiscussions.map((entry, dIdx) => (
+                              <div key={dIdx} className="p-2.5 bg-white border border-[#E8E4DD] rounded-lg text-xs flex items-start gap-2.5">
+                                <div className="w-6 h-6 rounded-md bg-[rgba(61,90,71,0.07)] border border-[rgba(61,90,71,0.1)] flex items-center justify-center shrink-0 text-[10px] font-bold text-[#3D5A47]">
+                                  {dIdx + 1}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[#1C1917] font-medium leading-relaxed break-words">{entry.comment}</p>
+                                  <span className="text-[10px] text-[#A8A29E] font-mono mt-1 block">
+                                    {new Date(entry.timestamp).toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
 

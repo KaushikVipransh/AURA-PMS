@@ -33,15 +33,15 @@ export default function AdminPanel() {
     try {
       const sheetsResponse = await fetch('https://aurapms-backend.vercel.app/api/goalsheets');
       const sheetsData = await sheetsResponse.json();
-      setSheets(sheetsData || []);
+      setSheets(Array.isArray(sheetsData) ? sheetsData : []);
 
       const logsResponse = await fetch('https://aurapms-backend.vercel.app/api/admin/audit-logs');
       const logsData = await logsResponse.json();
-      setAuditLogs(logsData || []);
+      setAuditLogs(Array.isArray(logsData) ? logsData : []);
 
       const escResponse = await fetch('https://aurapms-backend.vercel.app/api/admin/escalations');
       const escData = await escResponse.json();
-      setEscalationLogs(escData || []);
+      setEscalationLogs(Array.isArray(escData) ? escData : []);
 
       const analyticsResponse = await fetch('https://aurapms-backend.vercel.app/api/admin/analytics');
       const analyticsData = await analyticsResponse.json();
