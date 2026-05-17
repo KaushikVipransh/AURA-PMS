@@ -463,10 +463,10 @@ app.get('/api/admin/analytics', async (req, res) => {
 // ==========================================
 app.delete('/api/admin/reset-demo', async (req, res) => {
     try {
-        // Direct absolute purging of dependent collections
-        await GoalSheet.deleteMany({});
-        await AuditLog.deleteMany({});
-        await Escalation.deleteMany({});
+        // Direct, absolute database collection-level truncation to bypass Mongoose model locks
+        await mongoose.connection.db.collection('goalsheets').deleteMany({});
+        await mongoose.connection.db.collection('auditlogs').deleteMany({});
+        await mongoose.connection.db.collection('escalations').deleteMany({});
         
         res.status(200).json({ message: 'System collection layers successfully flushed to zero state!' });
     } catch (error) {
