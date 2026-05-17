@@ -28,29 +28,29 @@ export default function AdminPanel() {
     fetchInitialAdminData();
   }, []);
 
+  // --- HANDSHAKE LOGIC POINT A: GATHER INITIAL CLUSTER DATA ---
   const fetchInitialAdminData = async () => {
     try {
-      const sheetsResponse = await fetch('http://localhost:5000/api/goalsheets');
+      const sheetsResponse = await fetch('https://aurapms-backend.vercel.app/api/goalsheets');
       const sheetsData = await sheetsResponse.json();
       setSheets(sheetsData || []);
 
-      const logsResponse = await fetch('http://localhost:5000/api/admin/audit-logs');
+      const logsResponse = await fetch('https://aurapms-backend.vercel.app/api/admin/audit-logs');
       const logsData = await logsResponse.json();
       setAuditLogs(logsData || []);
 
-      const escResponse = await fetch('http://localhost:5000/api/admin/escalations');
+      const escResponse = await fetch('https://aurapms-backend.vercel.app/api/admin/escalations');
       const escData = await escResponse.json();
       setEscalationLogs(escData || []);
 
-      const analyticsResponse = await fetch('http://localhost:5000/api/admin/analytics');
+      const analyticsResponse = await fetch('https://aurapms-backend.vercel.app/api/admin/analytics');
       const analyticsData = await analyticsResponse.json();
       if (analyticsData && !analyticsData.error) setAnalytics(analyticsData);
 
-      const periodResponse = await fetch('http://localhost:5000/api/admin/active-period');
+      const periodResponse = await fetch('https://aurapms-backend.vercel.app/api/admin/active-period');
       const periodData = await periodResponse.json();
       if (periodData?.activePeriod) setActivePeriod(periodData.activePeriod);
 
-      // Automatically sync baseline selection fields against backend indexes
       if (sheetsData && sheetsData.length > 0) {
         setSharedKpi(prev => ({ ...prev, primaryOwnerName: sheetsData[0].employeeName }));
       }
@@ -62,9 +62,10 @@ export default function AdminPanel() {
     }
   };
 
+  // --- HANDSHAKE LOGIC POINT B: GLOBAL CYCLE SCHEDULER VECTOR ---
   const handlePeriodWindowChange = async (newPeriod) => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/active-period', {
+      const response = await fetch('https://aurapms-backend.vercel.app/api/admin/active-period', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newPeriod })
@@ -74,27 +75,33 @@ export default function AdminPanel() {
         setActivePeriod(newPeriod);
         fetchInitialAdminData(); 
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error(error);
+    }
   };
 
+  // --- HANDSHAKE LOGIC POINT C: EXECUTE BACKGROUND INTERVAL RECKONER ---
   const handleRunComplianceEvaluation = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/evaluate-escalations', { method: 'POST' });
+      const response = await fetch('https://aurapms-backend.vercel.app/api/admin/evaluate-escalations', { method: 'POST' });
       const data = await response.json();
       if (response.ok) {
         alert("⚙️ Compliance Engine Execution Finished!\nScanned sheets and evaluated current notification chain states.");
         setEscalationLogs(data.escalations || []);
         fetchInitialAdminData();
       }
-    } catch (error) { console.error(error); }
+    } catch (error) { 
+      console.error(error); 
+    }
   };
 
+  // --- HANDSHAKE LOGIC POINT D: COMPLIANCE RESOLUTION COMPILER ---
   const handleResolveLogItem = async (id) => {
     const text = resolutionText[id];
     if (!text || !text.trim()) return alert("Please input a tracking resolution note.");
 
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/escalations/${id}/resolve`, {
+      const response = await fetch(`https://aurapms-backend.vercel.app/api/admin/escalations/${id}/resolve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolutionComment: text })
@@ -104,28 +111,34 @@ export default function AdminPanel() {
         setResolutionText(prev => ({ ...prev, [id]: '' }));
         fetchInitialAdminData();
       }
-    } catch (error) { console.error(error); }
+    } catch (error) { 
+      console.error(error); 
+    }
   };
 
+  // --- HANDSHAKE LOGIC POINT E: SECURITY BYPASS LOCK BREAKER ---
   const handleAdminForceUnlock = async (sheetId) => {
     const confirmation = window.confirm("SECURITY OVERRIDE WARNING:\nYou are choosing to break a system lock. Proceed?");
     if (!confirmation) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/goalsheets/${sheetId}/admin-force-unlock`, { method: 'PUT' });
+      const response = await fetch(`https://aurapms-backend.vercel.app/api/goalsheets/${sheetId}/admin-force-unlock`, { method: 'PUT' });
       if (response.ok) {
         alert('🔓 SECURITY OVERRIDE COMPLETED: Goal sheet unlocked.');
         fetchInitialAdminData(); 
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error(error);
+    }
   };
 
+  // --- HANDSHAKE LOGIC POINT F: DEPLOY CORPORATE KPI BROADCAST ---
   const handlePushSharedGoal = async () => {
     if (!sharedKpi.title || !sharedKpi.target || !sharedKpi.primaryOwnerName) {
       return alert("Please ensure Title, Target, and a Sync Owner profile are active before broadcast distribution.");
     }
     try {
-      const response = await fetch('http://localhost:5000/api/goalsheets/push-shared', {
+      const response = await fetch('https://aurapms-backend.vercel.app/api/goalsheets/push-shared', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...sharedKpi, sharedGoalId: "cluster-" + Date.now().toString() })
@@ -135,12 +148,15 @@ export default function AdminPanel() {
         setSharedKpi({ title: '', uom: 'Numeric', target: '', defaultWeightage: '15', primaryOwnerName: sheets[0]?.employeeName || '' });
         fetchInitialAdminData();
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error(error);
+    }
   };
 
+  // --- HANDSHAKE LOGIC POINT G: DOWNLOAD STRUCTURAL DATA RELEASES ---
   const handleExportCSV = () => {
     const link = document.createElement('a');
-    link.href = 'http://localhost:5000/api/admin/export-csv';
+    link.href = 'https://aurapms-backend.vercel.app/api/admin/export-csv';
     link.setAttribute('download', 'Enterprise_Goal_Achievement_Report.csv');
     document.body.appendChild(link);
     link.click();
@@ -156,7 +172,7 @@ export default function AdminPanel() {
     <div className="min-h-screen bg-[#1A1816] text-[#E7E5E0] page-enter scrollbar-warm" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
         
-        {/* Header */}
+        {/* Header Structure */}
         <div className="flex items-center justify-between border-b border-[#332F2B] pb-5">
           <div>
             <h1 className="font-display text-2xl sm:text-3xl text-[#F5F2ED] flex items-center gap-2.5">
@@ -175,7 +191,7 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        {/* Stats Row */}
+        {/* Dynamic Aggregated Metrics Box Metrics Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up">
           <div className="p-4 bg-[#242220] border border-[#332F2B] rounded-xl">
             <span className="text-[10px] uppercase font-bold tracking-wider text-[#78716C] block">Total Active Profiles</span>
@@ -191,7 +207,7 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        {/* Analytics Cards */}
+        {/* Section 5.4 High Speed Analytics Arrays Analytics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-[#332F2B] pb-6 animate-slide-up animate-delay-1">
           {[
             { title: 'Thrust Area Distribution', data: analytics.thrustAreaBreakdown, color: '#C68B59' },
@@ -211,10 +227,10 @@ export default function AdminPanel() {
           ))}
         </div>
 
-        {/* Layout Grid */}
+        {/* Content Operations Panel layout Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="col-span-1 space-y-4 animate-slide-up animate-delay-2">
-            {/* Timeline Controller */}
+            {/* Timeline Scheduler Matrix */}
             <Card className="bg-[#242220] border-[#332F2B] text-[#E7E5E0] border-l-4 border-l-[#C68B59]">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base text-[#F5F2ED] font-semibold">Global Cycle Schedule</CardTitle>
@@ -236,7 +252,7 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
 
-            {/* Shared Framework Form */}
+            {/* Core Department KPI Form Container */}
             <Card className="bg-[#242220] border-[#332F2B] text-[#E7E5E0]">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base text-[#A8A29E] font-semibold">Deploy Global Framework</CardTitle>
@@ -283,7 +299,7 @@ export default function AdminPanel() {
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            {/* Sheets List */}
+            {/* System Profiles Queue */}
             <div className="space-y-3 animate-slide-up animate-delay-3">
               <h2 className="text-base font-semibold text-[#A8A29E]">System Activity Logs</h2>
               {loading ? (
@@ -301,7 +317,7 @@ export default function AdminPanel() {
               )}
             </div>
 
-            {/* Audit Trail */}
+            {/* Cryptographic Governance Feed Audit Trail */}
             <div className="space-y-3">
               <h2 className="text-base font-semibold text-[#A8A29E] border-t border-[#332F2B] pt-4">🔒 Audit Logs</h2>
               <div className="bg-[#242220] border border-[#332F2B] rounded-xl p-4 max-h-48 overflow-y-auto space-y-2 font-mono text-xs scrollbar-warm">
@@ -318,7 +334,7 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            {/* Escalation Board */}
+            {/* Section 5.3 Automated Rule Escalation Board */}
             <div className="space-y-4 border-t border-[#332F2B] pt-4">
               <div className="flex items-center justify-between">
                 <div>

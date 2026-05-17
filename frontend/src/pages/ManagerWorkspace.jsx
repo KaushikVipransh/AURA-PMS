@@ -25,13 +25,13 @@ export default function ManagerWorkspace() {
     fetchGoalSheets();
   }, []);
 
+  // --- HANDSHAKE LOGIC POINT A: FETCH ABSOLUTE ENTERPRISE SHEETS ---
   const fetchGoalSheets = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/goalsheets');
+      const response = await fetch('https://aurapms-backend.vercel.app/api/goalsheets');
       const data = await response.json();
       setGoalSheets(data || []);
       
-      // Dynamically auto-populate the broadcast owner selection using active database records
       if (data && data.length > 0) {
         setSharedKpi(prev => ({ ...prev, primaryOwnerName: data[0].employeeName }));
       }
@@ -72,12 +72,13 @@ export default function ManagerWorkspace() {
     return Math.round(totalScore);
   };
 
+  // --- HANDSHAKE LOGIC POINT B: TRANSMIT MANDATORY CASCADE BROADCAST ---
   const handlePushSharedGoal = async () => {
     if (!sharedKpi.title || !sharedKpi.target || !sharedKpi.primaryOwnerName) {
       return alert("Please ensure Title, Target, and a valid Primary Sync Owner are selected before broadcasting.");
     }
     try {
-      const response = await fetch('http://localhost:5000/api/goalsheets/push-shared', {
+      const response = await fetch('https://aurapms-backend.vercel.app/api/goalsheets/push-shared', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...sharedKpi, sharedGoalId: "cluster-" + Date.now().toString() })
@@ -92,32 +93,39 @@ export default function ManagerWorkspace() {
     }
   };
 
+  // --- HANDSHAKE LOGIC POINT C: SIGN OFF AND FREEZE PROFILE ---
   const handleApprove = async (sheetId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/goalsheets/${sheetId}/approve`, { method: 'PUT' });
+      const response = await fetch(`https://aurapms-backend.vercel.app/api/goalsheets/${sheetId}/approve`, { method: 'PUT' });
       if (response.ok) {
         alert('✅ Goal Sheet Approved and Locked System-Wide!');
         fetchGoalSheets();
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error(error);
+    }
   };
 
+  // --- HANDSHAKE LOGIC POINT D: TRIGGER STRUCTURAL ROLLBACK ---
   const handleRework = async (sheetId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/goalsheets/${sheetId}/rework`, { method: 'PUT' });
+      const response = await fetch(`https://aurapms-backend.vercel.app/api/goalsheets/${sheetId}/rework`, { method: 'PUT' });
       if (response.ok) {
         alert('Sheet successfully returned to employee tracking queue.');
         fetchGoalSheets();
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error(error);
+    }
   };
 
+  // --- HANDSHAKE LOGIC POINT E: WRITE DIALOGUE COMMENT NARRATIVE ---
   const handlePostDiscussionNote = async (sheetId) => {
     const textEntry = discussionInputs[sheetId];
     if (!textEntry || !textEntry.trim()) return alert("Please type a check-in comment to document the discussion.");
 
     try {
-      const response = await fetch(`http://localhost:5000/api/goalsheets/${sheetId}/discussion`, {
+      const response = await fetch(`https://aurapms-backend.vercel.app/api/goalsheets/${sheetId}/discussion`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ checkInComment: textEntry })
@@ -150,10 +158,10 @@ export default function ManagerWorkspace() {
           }} className="text-sm">Sign Out</Button>
         </div>
 
-        {/* Main Grid */}
+        {/* Main Layout Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* LEFT SIDEBAR */}
+          {/* LEFT SIDEBAR: CORPORATE BROADCAST MODIFIER */}
           <div className="col-span-1 space-y-1 animate-slide-up">
             <Card className="border-l-4 border-l-[#C68B59]">
               <CardHeader className="pb-3">
@@ -215,7 +223,7 @@ export default function ManagerWorkspace() {
             </Card>
           </div>
 
-          {/* RIGHT: SHEETS */}
+          {/* RIGHT VIEW: REVIEW QUEUE METRICS ARRAYS */}
           <div className="lg:col-span-2 space-y-4">
             {loading ? (
               <div className="text-center py-12 animate-fade-in">

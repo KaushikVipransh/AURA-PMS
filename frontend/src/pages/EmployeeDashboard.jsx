@@ -27,9 +27,10 @@ export default function EmployeeDashboard() {
     fetchActiveSheet();
   }, []);
 
+  // --- HANDSHAKE LOGIC POINT A: FETCH PASSIVE/ACTIVE SLATE ---
   const fetchActiveSheet = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/goalsheets');
+      const response = await fetch('https://aurapms-backend.vercel.app/api/goalsheets');
       const data = await response.json();
       
       if (data && data.length > 0) {
@@ -48,7 +49,6 @@ export default function EmployeeDashboard() {
 
   const totalWeightage = goals.reduce((sum, goal) => sum + Number(goal.weightage), 0);
 
-  // --- FIXED: COMPLIANT SYSTEM-COMPUTED METRIC ENGINE FROM SCREENSHOT ---
   const calculateOverallProgress = () => {
     if (!goals || goals.length === 0) return 0;
     let totalScore = 0;
@@ -61,16 +61,13 @@ export default function EmployeeDashboard() {
       
       let progressFraction = 0;
 
-      // Rule-based conditional calculation routing
       if (uom === 'Zero-based') {
         progressFraction = actual === 0 ? 1 : 0;
       } else if (uom === 'Timeline') {
         progressFraction = goal.status === 'Completed' ? 1 : goal.status === 'On Track' ? 0.5 : 0;
       } else if (goal.title.toLowerCase().includes('tat') || goal.title.toLowerCase().includes('cost') || goal.title.toLowerCase().includes('reduction')) {
-        // Max formula rule: Lower is better (Target / Achievement)
         progressFraction = actual > 0 ? (target / actual) : 0;
       } else {
-        // Min formula rule: Higher is better (Achievement / Target)
         progressFraction = actual / target;
       }
 
@@ -117,12 +114,13 @@ export default function EmployeeDashboard() {
     setGoals(updated);
   };
 
+  // --- HANDSHAKE LOGIC POINT B: TRANSMIT AND LOCK SYSTEMIC TRANSACTION PAYLOAD ---
   const handleSubmitSheet = async () => {
     try {
       const isReturned = existingSheet && (existingSheet.approvalStatus === 'Returned' || existingSheet.approvalStatus === 'Pending' || existingSheet.approvalStatus === 'Unlock Requested');
       const url = isReturned 
-        ? `http://localhost:5000/api/goalsheets/${existingSheet._id}/resubmit`
-        : 'http://localhost:5000/api/goalsheets';
+        ? `https://aurapms-backend.vercel.app/api/goalsheets/${existingSheet._id}/resubmit`
+        : 'https://aurapms-backend.vercel.app/api/goalsheets';
       
       const sanitizedGoals = goals.map(g => {
         const cleanGoal = { ...g };
@@ -151,9 +149,10 @@ export default function EmployeeDashboard() {
     }
   };
 
+  // --- HANDSHAKE LOGIC POINT C: UPDATE MID-QUARTER CHECK-IN DATA MATRIX ---
   const handleSaveCheckIn = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/goalsheets/${existingSheet._id}/checkin`, {
+      const response = await fetch(`https://aurapms-backend.vercel.app/api/goalsheets/${existingSheet._id}/checkin`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updatedGoals: goals })
@@ -183,7 +182,7 @@ export default function EmployeeDashboard() {
     <div className="min-h-screen bg-[#F7F5F0] page-enter">
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
         
-        {/* Header */}
+        {/* Header Layout Structure */}
         <div className="dash-header">
           <div>
             <h1 className="font-display text-2xl sm:text-3xl text-[#1C1917]">My Goal Sheet</h1>
@@ -213,7 +212,7 @@ export default function EmployeeDashboard() {
               </CardContent>
             </Card>
 
-            {/* Check-In Table */}
+            {/* Check-In Table Framework Component */}
             <Card className="shadow-warm">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -297,7 +296,7 @@ export default function EmployeeDashboard() {
           </div>
         ) : (
           <>
-            {/* Weightage Bar */}
+            {/* Weightage Validation Compliance Meter */}
             <Card className="animate-slide-up">
               <CardHeader className="pb-3"><CardTitle className="text-xs font-semibold text-[#78716C] uppercase tracking-wider">Total Weightage Metric Validation</CardTitle></CardHeader>
               <CardContent>
@@ -308,7 +307,7 @@ export default function EmployeeDashboard() {
               </CardContent>
             </Card>
 
-            {/* Goal Builder */}
+            {/* Goal Builder Workplace Suite */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-slide-up animate-delay-1">
               <Card className="col-span-1 border-l-4 border-l-[#3D5A47]">
                 <CardHeader><CardTitle className="text-lg font-semibold">Construct Personal Goal</CardTitle></CardHeader>
