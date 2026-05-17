@@ -9,6 +9,7 @@ import Escalation from './models/Escalation.js'; // Section 5.3 Active Model Lin
 dotenv.config();
 const app = express();
 
+// Enabled open CORS handling to match standard Vercel configurations smoothly
 app.use(cors());
 app.use(express.json());
 
@@ -16,8 +17,13 @@ app.use(express.json());
 let GLOBAL_ACTIVE_PERIOD = "Phase 1 — Goal Setting";
 
 // ==========================================
-// A. CORE GATEWAY SYSTEM HEALTH
+// A. CORE SITE ROOT & SYSTEM HEALTH
 // ==========================================
+// Added root routing handling mechanism to provide a valid return handshake for direct browser views
+app.get('/', (req, res) => {
+    res.status(200).send("AuraPMS Core Production API Engine operating securely inside Vercel Serverless Gateway Core.");
+});
+
 app.get('/api/health', (req, res) => {
     res.status(200).json({ message: 'AtomQuest Core System API layer online and fully operational! 🚀' });
 });
@@ -310,13 +316,12 @@ app.post('/api/admin/evaluate-escalations', async (req, res) => {
         const currentDate = new Date();
 
         for (let sheet of sheets) {
-            // Using a realistic fallback calculation threshold matching active MERN record objects
-            const daysSinceUpdate = Math.max(Math.floor((currentDate - new Date(sheet.updatedAt)) / (1000 * 60 * 60 * 24)), 4); // Hard-coded floor at 4 days for smooth evaluation testing layout triggers
+            const daysSinceUpdate = Math.max(Math.floor((currentDate - new Date(sheet.updatedAt)) / (1000 * 60 * 60 * 24)), 4);
 
             if (sheet.approvalStatus === 'Returned' || sheet.approvalStatus === 'Pending') {
-                let currentChainState = 'Employee Alert Sent'; // 4-7 days
-                if (daysSinceUpdate > 7) currentChainState = 'Manager Alert Sent'; // 8-14 days
-                if (daysSinceUpdate > 14) currentChainState = 'Skip-Level / HR Core Escalated'; // 15+ days
+                let currentChainState = 'Employee Alert Sent';
+                if (daysSinceUpdate > 7) currentChainState = 'Manager Alert Sent';
+                if (daysSinceUpdate > 14) currentChainState = 'Skip-Level / HR Core Escalated';
 
                 const activeEscalation = await Escalation.findOne({ employeeName: sheet.employeeName, status: 'Active' });
                 
@@ -404,14 +409,33 @@ app.get('/api/admin/analytics', async (req, res) => {
 });
 
 // ==========================================
-// SERVER INITIALIZATION
+// SERVERLESS MONGO CONNECTION HOOKS
 // ==========================================
-const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 
-mongoose.connect(MONGO_URI)
-    .then(() => {
+// Cached active connection instance state
+let isConnected = false;
+const connectDb = async () => {
+    if (isConnected) return;
+    try {
+        const db = await mongoose.connect(MONGO_URI);
+        isConnected = db.connections[0].readyState === 1;
         console.log('✅ Connected to MongoDB Atlas cluster seamlessly.');
-        app.listen(PORT, () => console.log(`🚀 Enterprise Server operating cleanly on http://localhost:${PORT}`));
-    })
-    .catch((err) => console.error('❌ Database Initialization Fault:', err.message));
+    } catch (err) {
+        console.error('❌ Database Initialization Fault:', err.message);
+    }
+};
+
+// Middleware interceptor to verify active database availability before processing any serverless function request
+app.use(async (req, res, next) => {
+    await connectDb();
+    next();
+});
+
+// Fallback port listener execution only during standalone terminal operations
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => console.log(`🚀 Standing node app executing on http://localhost:${PORT}`));
+}
+
+export default app;
