@@ -42,13 +42,13 @@ AuraPMS employs a secure, decoupled architectural pattern that separates present
 * **Cumulative Metric Scoring Progress Tracker:** Dynamically reads and computes overall progress fractions against assigned goal weights, rendering a live aggregated progress summary bar.
 * **Continuous Dialogue Logger:** An interactive check-in commentary module to log persistent audit feedback and coaching trails directly onto the employee's active profile sheet.
 
-### ⚠️ 3. Section 5.3 Rule-Based Escalation Control Board (Advanced Bonus Module)
+### ⚠️ 3. Rule-Based Escalation Control Board
 * **Automated Timeline Exceptions:** Compares current server dates against sheet modification timestamps (`updatedAt`) to automatically isolate submission and approval pipeline delays.
 * **Dynamic Notification Status Chain:** Automatically routes the notification tier step-by-step through a defined corporate alert hierarchy over time:
   $$\text{Employee Alert Sent} \longrightarrow \text{Manager Alert Sent} \longrightarrow \text{Skip-Level / HR Core Escalated}$$
 * **Interactive HR Resolution Desk:** Allows HR Admins to visually track delays, input custom compliance logs, and execute explicit resolution handlers to safely archive open violations.
 
-### 📊 4. Section 5.4 Analytics Dashboard (Advanced Bonus Module)
+### 📊 4. Analytics Dashboard
 * **Dynamic Organization Distributions:** Runs high-speed database aggregation matrices to display organizational metrics split by **Thrust Area**, **UoM Type Allocations**, and real-time **Goal Execution Status Rates**.
 * **Global Security Unlock Break:** Provides HR Admins with an override bypass to force-unlock locked sheets, automatically logging the exception into a secure, timestamped, unalterable system terminal board (`[ADMIN_FORCE_UNLOCK]`).
 * **Tabular Data Export Stream:** Compiles live, un-truncated database arrays into a localized physical file (`Enterprise_Goal_Achievement_Report.csv`) dynamically in the browser window with zero application lag.
