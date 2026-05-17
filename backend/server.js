@@ -34,9 +34,9 @@ const connectDb = async () => {
             uri = uri.replace('mongodb.net', 'mongodb.net/aurapms');
         }
         await mongoose.connect(uri, {
-            serverSelectionTimeoutMS: 30000,
-            connectTimeoutMS: 30000,
-            socketTimeoutMS: 45000,
+            serverSelectionTimeoutMS: 8000,
+            connectTimeoutMS: 8000,
+            socketTimeoutMS: 10000,
             retryWrites: true,
         });
         isConnected = true;
