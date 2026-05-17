@@ -14,24 +14,49 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// DATABASE CONNECTION MIDDLEWARE (must run BEFORE route handlers)
+// DATABASE CONNECTION (with timeouts for Vercel serverless)
 // ==========================================
 const MONGO_URI = process.env.MONGO_URI;
 let isConnected = false;
+
 const connectDb = async () => {
-    if (isConnected) return;
+    if (isConnected) return true;
+    if (mongoose.connection.readyState === 1) {
+        isConnected = true;
+        return true;
+    }
     try {
-        const db = await mongoose.connect(MONGO_URI);
-        isConnected = db.connections[0].readyState === 1;
+        // Append database name if not already present
+        let uri = MONGO_URI;
+        if (uri && !uri.includes('mongodb.net/aurapms')) {
+            uri = uri.replace('mongodb.net/', 'mongodb.net/aurapms');
+        }
+        await mongoose.connect(uri, {
+            serverSelectionTimeoutMS: 5000,
+            connectTimeoutMS: 5000,
+            socketTimeoutMS: 10000,
+        });
+        isConnected = true;
         console.log('✅ Connected to MongoDB Atlas cluster seamlessly.');
+        return true;
     } catch (err) {
         console.error('❌ Database Initialization Fault:', err.message);
+        isConnected = false;
+        return false;
     }
 };
 
-// Middleware interceptor to verify active database availability before processing any serverless function request
-app.use(async (req, res, next) => {
-    await connectDb();
+// Monitor disconnections to reset the flag
+mongoose.connection.on('disconnected', () => { isConnected = false; });
+
+// Database middleware — only applied to /api/ routes (not root or health)
+app.use('/api', async (req, res, next) => {
+    // Skip DB connection for health check
+    if (req.path === '/health') return next();
+    const connected = await connectDb();
+    if (!connected) {
+        return res.status(503).json({ error: 'Database unavailable. Please try again in a moment.' });
+    }
     next();
 });
 
