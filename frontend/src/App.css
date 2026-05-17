@@ -1,0 +1,137 @@
+/* ─── Page-level animation wrapper ─── */
+.page-enter {
+  animation: slideUp 0.45s ease-out both;
+}
+
+/* ─── Shared table styles ─── */
+.table-warm thead th {
+  background: #F0ECE4;
+  color: #44403C;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 2px solid #E8E4DD;
+}
+
+.table-warm tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.table-warm tbody tr:nth-child(even) {
+  background-color: rgba(240, 236, 228, 0.35);
+}
+
+.table-warm tbody tr:hover {
+  background-color: rgba(61, 90, 71, 0.04);
+}
+
+.table-warm tbody td {
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid #E8E4DD;
+}
+
+/* ─── Dashboard header bar ─── */
+.dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #E8E4DD;
+  margin-bottom: 1.75rem;
+}
+
+/* ─── Form select styling (warm) ─── */
+.select-warm {
+  display: flex;
+  height: 2.5rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid #E8E4DD;
+  background: #FFFFFF;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  color: #1C1917;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2378716C' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+}
+
+.select-warm:focus {
+  border-color: #3D5A47;
+  box-shadow: 0 0 0 2px rgba(61, 90, 71, 0.12);
+}
+
+/* Dark variant */
+.select-warm-dark {
+  display: flex;
+  height: 2.5rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid #332F2B;
+  background: #1A1816;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  color: #F5F2ED;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A8A29E' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+}
+
+.select-warm-dark:focus {
+  border-color: #6B9E7A;
+  box-shadow: 0 0 0 2px rgba(107, 158, 122, 0.15);
+}
+
+/* ─── Status badge variants ─── */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.badge-approved {
+  background: rgba(91, 140, 90, 0.12);
+  color: #3D6B3C;
+  border: 1px solid rgba(91, 140, 90, 0.2);
+}
+
+.badge-pending {
+  background: rgba(198, 139, 89, 0.12);
+  color: #A06830;
+  border: 1px solid rgba(198, 139, 89, 0.2);
+}
+
+.badge-returned {
+  background: rgba(181, 77, 77, 0.1);
+  color: #9E3E3E;
+  border: 1px solid rgba(181, 77, 77, 0.18);
+}
+
+.badge-completed {
+  background: rgba(91, 140, 90, 0.12);
+  color: #3D6B3C;
+}
+
+.badge-ontrack {
+  background: rgba(61, 90, 71, 0.1);
+  color: #3D5A47;
+}
+
+.badge-notstarted {
+  background: rgba(120, 113, 108, 0.1);
+  color: #78716C;
+}
