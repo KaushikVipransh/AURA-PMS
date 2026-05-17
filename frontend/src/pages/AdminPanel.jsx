@@ -163,28 +163,7 @@ export default function AdminPanel() {
     document.body.removeChild(link);
   };
 
- // --- DEMO LIFECYCLE CONTROLLER: RESET AND SYSTEM PURGE ---
-  const handleResetDemoData = async () => {
-    const confirmFlush = window.confirm("🚨 DEMO DATA PURGE WARNING:\nAre you sure you want to flush all database collections back to a blank zero-state for live evaluation testing?");
-    if (!confirmFlush) return;
 
-    try {
-      // Swapped method context to POST to align smoothly with your serverless infrastructure maps
-      const response = await fetch('https://aurapms-backend.vercel.app/api/admin/reset-demo', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (response.ok) {
-        alert("🧹 Database collections successfully purged! The system is now a complete blank slate for your user journey testing.");
-        fetchInitialAdminData();
-      } else {
-        alert("Failed to reset database layer parameters cleanly.");
-      }
-    } catch (error) {
-      console.error("Reset trace error:", error);
-      alert("Network timeout fault parsing reset commands.");
-    }
-  };
 
   const totalProfiles = sheets.length;
   const totalCompletedCheckins = sheets.filter(s => s.goals?.every(g => g.status === 'Completed' || g.status === 'On Track')).length;
@@ -204,10 +183,6 @@ export default function AdminPanel() {
             <p className="text-[#78716C] mt-1 text-sm">Export organizational achievements, track compliance ratios, and view absolute audit changes.</p>
           </div>
           <div className="flex gap-3">
-            {/* INJECTED SYSTEM RESET INTERFACE TRIGGER */}
-            <Button onClick={handleResetDemoData} className="bg-[#B54D4D] hover:bg-[#963E3E] text-white text-xs font-semibold px-4 shadow-warm-sm">
-              🧹 Reset System Demo
-            </Button>
             <Button onClick={handleExportCSV} className="bg-[#5B8C5A] hover:bg-[#4A7A49] text-white text-xs font-semibold px-4 shadow-warm-sm">
               📥 Export Report (CSV)
             </Button>

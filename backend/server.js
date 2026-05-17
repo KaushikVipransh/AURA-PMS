@@ -458,26 +458,6 @@ app.get('/api/admin/analytics', async (req, res) => {
     }
 });
 
-// ==========================================
-// S. DEMO CONTROLLER: SYSTEM FLUSH & RESET
-// ==========================================
-// Transformed to an explicit POST route to ensure robust firewall/gateway traversal on Vercel
-app.post('/api/admin/reset-demo', async (req, res) => {
-    try {
-        // Explicitly force connection availability inside the handler scope
-        await connectDb();
-        
-        // Target collection structures directly using Mongoose models to guarantee atomic deletion drops
-        await GoalSheet.deleteMany({});
-        await AuditLog.deleteMany({});
-        await Escalation.deleteMany({});
-        
-        res.status(200).json({ message: 'System collection layers successfully flushed to zero state!' });
-    } catch (error) {
-        console.error('POST /api/admin/reset-demo error:', error);
-        res.status(500).json({ error: 'Failed to execute system flush sequence.', details: error.message });
-    }
-});
 
 // Fallback port listener execution only during standalone terminal operations
 if (process.env.NODE_ENV !== 'production') {
