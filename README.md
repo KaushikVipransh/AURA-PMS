@@ -11,20 +11,28 @@ Built on a decoupled **MERN Stack (MongoDB, Express.js, React, Node.js)** and st
 AuraPMS employs a secure, decoupled architectural pattern that separates presentation layers from data processing engines to guarantee 100% operational uptime.
 
 [ Client Browser / Frontend Single Page App ]
+
 │
+
 ▼ (HTTPS / JSON REST API Handshaking Layer)
+
 [ Node.js & Express.js Core Backend Gateway Engine ]
+
 │
+
 ├───► Database Pipeline ───► [ MongoDB Atlas Cloud Cluster ]
+
 │
+
 ▼ (Self-Contained Functional Subsystems)
-┌────────────────────────────────────────────────────────┐
-│ ⚙️ Core Engines Configured Natively:                   |
-│  1. Multi-Formula Scoring Engine (Unit of Measure)     │
-│  2. Automated Rule Escalation Processor                │
-│  3. Live Metrics Aggregator Aggregates                 │
-│  4. Tabular CSV Ledger Stream Exporter                 │
-└────────────────────────────────────────────────────────┘
+
+
+
+⚙️ Core Engines Configured Natively:                  
+1.  Multi-Formula Scoring Engine (Unit of Measure)
+2.  Automated Rule Escalation Processor
+3.  Live Metrics Aggregator Aggregates
+4.  Tabular CSV Ledger Stream Exporter          
 ---
 
 ## 🚀 Key Functional Systems & Features
