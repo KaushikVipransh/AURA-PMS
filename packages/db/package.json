@@ -12,7 +12,12 @@
   "scripts": {
     "build": "echo no-op",
     "lint": "echo no-op",
-    "typecheck": "echo no-op",
+    "typecheck": "tsc --noEmit",
     "test": "echo no-op"
+  },
+  "devDependencies": {
+    "@aura/config": "workspace:*",
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
   }
 }

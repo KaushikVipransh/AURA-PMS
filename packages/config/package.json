@@ -16,5 +16,8 @@
     "lint": "echo no-op",
     "typecheck": "echo no-op",
     "test": "echo no-op"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

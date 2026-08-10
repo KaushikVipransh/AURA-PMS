@@ -1,0 +1,14 @@
+{
+  "extends": "@aura/config/tsconfig.react.json",
+  "compilerOptions": {
+    /* The app is still .jsx. checkJs stays false until W6-01 migrates it to
+       TypeScript, at which point allowJs/checkJs both go away. */
+    "allowJs": true,
+    "checkJs": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.jsx"]
+}

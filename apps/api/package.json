@@ -10,7 +10,7 @@
     "dev": "nodemon server.js",
     "build": "echo no-op",
     "lint": "echo no-op",
-    "typecheck": "echo no-op",
+    "typecheck": "tsc --noEmit",
     "test": "echo no-op"
   },
   "license": "ISC",
@@ -21,6 +21,9 @@
     "mongoose": "^9.6.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@aura/config": "workspace:*",
+    "@types/node": "^22.20.1",
+    "nodemon": "^3.1.14",
+    "typescript": "^5.9.3"
   }
 }

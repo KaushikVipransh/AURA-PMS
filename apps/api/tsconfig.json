@@ -1,0 +1,10 @@
+{
+  "extends": "@aura/config/tsconfig.node.json",
+  "compilerOptions": {
+    /* server.js and models/ are still the prototype's JavaScript. They are
+       rewritten in TypeScript across Waves 3-4; checkJs turns on then. */
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["src/**/*.ts", "server.js", "models/**/*.js"]
+}

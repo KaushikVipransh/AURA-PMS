@@ -85,7 +85,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
-| [W0 — Harness](#wave-0--harness) | 8 | 12h | 1/8 |
+| [W0 — Harness](#wave-0--harness) | 8 | 12h | 2/8 |
 | [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | ☐ |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
@@ -123,13 +123,19 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > Turbo resolved to 2.10.9. The six `no output files found` warnings are expected — placeholder `echo no-op`
   > build scripts produce no artifacts, and they disappear as real builds land in W0-02 onward.
 
-- [ ] **`W0-02` · Shared TypeScript config package**
+- [x] **`W0-02` · Shared TypeScript config package**
   **Est** 1h
   **Do:** `packages/config/tsconfig.base.json` with `strict`, `noUncheckedIndexedAccess`,
   `exactOptionalPropertyTypes`, `noImplicitOverride`, `moduleResolution: bundler`. Add `tsconfig.node.json` and
   `tsconfig.react.json` variants. Every package extends one.
   **Done when:** `pnpm turbo run typecheck` runs across all packages and reports zero config errors.
   **Verify:** `pnpm turbo run typecheck`
+
+  > **Note (W0-02):** `apps/web` and `apps/api` are still JavaScript, so both set `allowJs: true` +
+  > `checkJs: false` and are wired to the shared base anyway — they gain real checking when W6-01 and Waves 3-4
+  > convert them. `apps/web/jsconfig.json` was deleted in favour of `tsconfig.json` (paths alias preserved).
+  > `packages/config` keeps a no-op typecheck: it ships JSON, not TypeScript. Strictness was proven live by a
+  > throwaway probe — `xs[0]` correctly errored as `string | undefined` under `noUncheckedIndexedAccess`.
 
 - [ ] **`W0-03` · Shared ESLint + Prettier config**
   **Est** 1h
