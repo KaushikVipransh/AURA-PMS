@@ -85,7 +85,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
-| [W0 — Harness](#wave-0--harness) | 8 | 12h | 3/8 |
+| [W0 — Harness](#wave-0--harness) | 8 | 12h | 5/8 |
 | [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | ☐ |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
@@ -166,7 +166,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > real diffs. Prettier applies to new code; run it per-file as pages get rewritten. `format:check` is
   > deliberately outside `pnpm verify` until Wave 6 completes.
 
-- [ ] **`W0-04` · Vitest setup with coverage thresholds**
+- [x] **`W0-04` · Vitest setup with coverage thresholds**
   **Est** 1.5h
   **Do:** Root `vitest.workspace.ts`. Per-package `vitest.config.ts`. Coverage via v8 with thresholds:
   `packages/core` ≥ 90%, global ≥ 80%. Add one trivial passing test per package so the runner has work.
@@ -174,13 +174,34 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   fails the run.
   **Verify:** `pnpm turbo run test`
 
-- [ ] **`W0-05` · Define the `verify` gate**
+  > **Note (W0-04):** Vitest resolved to 4.1.10, which **removed `vitest.workspace.ts`** — the root config uses
+  > `test.projects` instead. Turborepo runs tests per package anyway, so the root config only serves watch mode
+  > and IDE integration.
+  >
+  > Thresholds: `@aura/core` 90%, `@aura/contracts` / `@aura/db` / `worker` 80%. `apps/api` and `apps/web` get
+  > coverage reporting but **no thresholds yet** — both are still the prototype's JavaScript, so there is no
+  > TypeScript source to measure. Thresholds land with their migrations (Waves 3-4 and W6-01).
+  >
+  > With only placeholder modules the thresholds pass vacuously (0/0 statements reports as 100%), so enforcement
+  > was proven with a throwaway probe: an untested exported function dropped core to 0% and correctly failed the
+  > run against the 90% threshold on all four metrics.
+
+- [x] **`W0-05` · Define the `verify` gate**
   **Est** 0.5h
   **Do:** Add the `verify`, `verify:integration`, `verify:full` scripts from §"The automation contract" to the
   root `package.json`.
   **Done when:** `pnpm verify` runs lint + typecheck + test + build in one command and exits non-zero if any
   stage fails.
   **Verify:** `pnpm verify`
+
+  > **Note (W0-05):** The scripts were added in W0-01; this task proved the gate end to end. **28 tasks across
+  > 7 packages, exit 0** — and exit 1 with `Failed: @aura/core#lint` while a real config bug was outstanding, so
+  > the non-zero path is confirmed rather than assumed.
+  >
+  > Warm runs are **68ms (FULL TURBO)** against ~32s cold. That margin is what makes a per-task gate something
+  > you actually run rather than skip.
+  >
+  > `format:check` is deliberately **not** in the gate — see the W0-03 note on the legacy tree.
 
 - [ ] **`W0-06` · GitHub Actions CI running the same gate**
   **Est** 1.5h

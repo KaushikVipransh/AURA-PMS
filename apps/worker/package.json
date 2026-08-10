@@ -8,12 +8,14 @@
     "build": "echo no-op",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "echo no-op"
+    "test": "vitest run --coverage"
   },
   "devDependencies": {
     "@aura/config": "workspace:*",
     "@types/node": "^22.20.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }

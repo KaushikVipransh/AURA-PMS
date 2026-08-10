@@ -48,6 +48,12 @@ export const base = tseslint.config(
     files: ['**/*.{js,jsx,mjs,cjs}'],
     ...tseslint.configs.disableTypeChecked,
   },
+  {
+    // Tool config files sit at the package root, outside every tsconfig
+    // `include`, so the project service cannot resolve them either.
+    files: ['*.config.ts', '**/*.config.ts'],
+    ...tseslint.configs.disableTypeChecked,
+  },
   prettier,
 );
 
