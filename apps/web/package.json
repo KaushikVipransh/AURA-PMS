@@ -1,14 +1,16 @@
 {
-  "name": "frontend",
+  "name": "web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "description": "AuraPMS React single-page application",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "init-tw": "tailwindcss init -p"
+    "typecheck": "echo no-op",
+    "test": "echo no-op",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

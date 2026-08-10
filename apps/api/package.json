@@ -1,16 +1,19 @@
 {
-  "name": "backend",
-  "version": "1.0.0",
+  "name": "api",
+  "version": "0.0.0",
+  "private": true,
   "main": "server.js",
   "type": "module",
+  "description": "AuraPMS REST API server",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "echo no-op",
+    "lint": "echo no-op",
+    "typecheck": "echo no-op",
+    "test": "echo no-op"
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

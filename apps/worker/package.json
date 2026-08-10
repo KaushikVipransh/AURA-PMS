@@ -1,0 +1,13 @@
+{
+  "name": "worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "pg-boss job processor: escalations, notifications, exports, digests",
+  "scripts": {
+    "build": "echo no-op",
+    "lint": "echo no-op",
+    "typecheck": "echo no-op",
+    "test": "echo no-op"
+  }
+}

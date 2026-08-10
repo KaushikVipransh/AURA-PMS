@@ -1,0 +1,17 @@
+{
+  "name": "@aura/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zod request/response schemas shared by API and web — the API contract",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo no-op",
+    "lint": "echo no-op",
+    "typecheck": "echo no-op",
+    "test": "echo no-op"
+  }
+}
