@@ -85,7 +85,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
-| [W0 — Harness](#wave-0--harness) | 8 | 12h | 2/8 |
+| [W0 — Harness](#wave-0--harness) | 8 | 12h | 3/8 |
 | [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | ☐ |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
@@ -137,7 +137,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > `packages/config` keeps a no-op typecheck: it ships JSON, not TypeScript. Strictness was proven live by a
   > throwaway probe — `xs[0]` correctly errored as `string | undefined` under `noUncheckedIndexedAccess`.
 
-- [ ] **`W0-03` · Shared ESLint + Prettier config**
+- [x] **`W0-03` · Shared ESLint + Prettier config**
   **Est** 1h
   **Do:** `packages/config/eslint.config.js` (flat config) with `typescript-eslint` recommended-type-checked,
   `eslint-plugin-react-hooks`, and an `import/no-restricted-paths` rule forbidding `packages/core` from
@@ -145,6 +145,26 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Done when:** `pnpm turbo run lint` passes on all packages; the restricted-path rule is proven by a
   deliberately bad import that errors, then removed.
   **Verify:** `pnpm turbo run lint`
+
+  > **Note (W0-03):** Purity is enforced with the built-in `no-restricted-imports` rather than
+  > `import/no-restricted-paths` — it expresses "core may not import I/O" directly and avoids pulling in
+  > `eslint-plugin-import`. Proven live: importing `node:fs` from `@aura/core` errors with the intended message.
+  >
+  > Linting the prototype surfaced 25 real findings, all in code with a scheduled rewrite date. They are
+  > **quarantined in two scoped blocks, not fixed**, because W1-14 and Wave 4 replace `apps/api/server.js` and
+  > Waves 2/6 replace the pages:
+  > - `apps/api` — 16 `catch (error)` bindings that are never used or logged (part of F-14). Remove the block at
+  >   **W1-14**.
+  > - `apps/web/src/pages` — unused catch bindings and dead state (F-14), a useless `progressFraction`
+  >   assignment in the duplicated scoring code (F-07), and `react-hooks/immutability` on the fetch-in-effect
+  >   pattern (F-12). Remove entries as **W6-06 … W6-11** land.
+  >
+  > One permanent override: `src/components/ui/**` allows `react-refresh/only-export-components`, since shadcn
+  > exports a component and its cva variants from the same module upstream.
+  >
+  > `pnpm format` is **not** run over the legacy tree — reformatting files scheduled for rewrite would bury the
+  > real diffs. Prettier applies to new code; run it per-file as pages get rewritten. `format:check` is
+  > deliberately outside `pnpm verify` until Wave 6 completes.
 
 - [ ] **`W0-04` · Vitest setup with coverage thresholds**
   **Est** 1.5h

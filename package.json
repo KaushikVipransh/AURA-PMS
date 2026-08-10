@@ -17,9 +17,12 @@
     "dev": "turbo run dev",
     "verify": "turbo run lint typecheck test build",
     "verify:integration": "turbo run test:integration",
-    "verify:full": "pnpm verify && pnpm verify:integration && pnpm test:e2e"
+    "verify:full": "pnpm verify && pnpm verify:integration && pnpm test:e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "prettier": "^3.9.6",
     "turbo": "^2.6.1"
   }
 }
