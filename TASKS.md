@@ -86,7 +86,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
 | [W0 — Harness](#wave-0--harness) | 8 | 12h | **8/8 ✅** |
-| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 6/14 |
+| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 9/14 |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
 | [W4 — API surface](#wave-4--api-surface) | 21 | 42h | ☐ |
@@ -366,14 +366,14 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > cycle as JSON rather than referenced, so changing the scale later cannot rewrite a historical rating
   > (PRD US-203).
 
-- [ ] **`W1-06` · `GoalSheet` model** · **Est** 1.5h
+- [x] **`W1-06` · `GoalSheet` model** · **Est** 1.5h
   **Do:** `goalsheet.prisma` — `orgId`, `userId` FK, `cycleId` FK, `status` enum, `submittedAt`, `approvedAt`,
   `approverId`, `lockedAt`, `revision`. **`@@unique([userId, cycleId])`** — this is PRD US-202 and
   [PLAN.md](PLAN.md) F-03 fixed at the storage layer.
   **Done when:** migration applies; a second sheet for the same user+cycle is rejected by the database.
   **Verify:** `pnpm verify`
 
-- [ ] **`W1-07` · `Goal` model with explicit direction** · **Est** 1.5h
+- [x] **`W1-07` · `Goal` model with explicit direction** · **Est** 1.5h
   **Do:** `goal.prisma` — `sheetId` FK, `thrustArea` enum, `title`, `uom` enum, **`direction` enum
   (`HIGHER_IS_BETTER` | `LOWER_IS_BETTER`)**, `target`, `weightage` Decimal(5,2), `actualAchievement`,
   `status` enum, `sharedGoalId` FK (nullable), `isPrimaryOwner`. This kills [PLAN.md](PLAN.md) F-06 at the
@@ -381,11 +381,31 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Done when:** migration applies; a test asserts `direction` has no default that silently guesses.
   **Verify:** `pnpm verify`
 
-- [ ] **`W1-08` · `SharedGoal` model** · **Est** 1h
+- [x] **`W1-08` · `SharedGoal` model** · **Est** 1h
   **Do:** `sharedgoal.prisma` — `orgId`, `cycleId`, **`ownerUserId` FK → User** (F-05's fix: a display-name
   string cannot be stored here), `audience` Json, template fields, `createdById`.
   **Done when:** migration applies; a test asserts inserting a non-existent owner id fails.
   **Verify:** `pnpm verify`
+
+  > **Note (W1-06 / W1-07 / W1-08):** One migration, `20260811105710_goal_sheets`. 11 integration tests.
+  >
+  > **Correction to this document's parallelism claim** (see "On atomic with no interdependencies", point 1).
+  > Prisma requires *both* sides of every relation, so adding `GoalSheet` also required a back-reference line in
+  > `user.prisma` and `cycle.prisma`. Model files are therefore **nearly**, not perfectly, collision-free: a new
+  > model adds one line to each related model's file. Two people working in parallel would hit a trivial
+  > one-line merge, not a rewrite — but the original claim was too strong.
+  >
+  > **`Goal.direction` deliberately has no default**, verified two ways: Prisma's generated type makes it
+  > required so omitting it will not compile, and a test queries `information_schema` to assert the column has no
+  > database-level default either. A default would reintroduce F-06 in a quieter form — a silently wrong
+  > direction nobody chose.
+  >
+  > **Weightage is `Decimal(5,2)`, not `Float`.** Float drift is precisely why the prototype ended up with
+  > `Math.round(t) !== 100` in one route and a strict `!== 100` in another (F-10).
+  >
+  > `@@unique([sheetId, sharedGoalId])` means re-broadcasting a KPI cannot duplicate it on a sheet.
+  > `SharedGoal.owner` is `onDelete: Restrict` — an owner cannot be deleted out from under a live KPI; deactivate
+  > instead (PRD US-106).
 
 - [ ] **`W1-09` · `SheetRevision` model** · **Est** 1h
   **Do:** `revision.prisma` — `sheetId`, `revision` int, `snapshot` Json, `reason` enum

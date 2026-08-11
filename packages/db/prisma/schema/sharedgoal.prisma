@@ -1,0 +1,38 @@
+/// A departmental KPI cascaded to many people.
+///
+/// `ownerUserId` is a foreign key to User. The prototype resolved the primary
+/// owner by lowercased display-name comparison (PLAN.md F-05), so two people
+/// called "A. Kumar" both became owner and a rename broke the link silently.
+/// A display name cannot be stored in a `userId` column.
+model SharedGoal {
+  id          String @id @default(cuid())
+  orgId       String
+  cycleId     String
+  ownerUserId String
+  createdById String
+
+  title      String
+  thrustArea ThrustArea
+  uom        Uom
+  /// Explicit here too — cascaded instances inherit it rather than re-deriving.
+  direction  GoalDirection
+  target     String
+
+  defaultWeightage Decimal @db.Decimal(5, 2)
+
+  /// Who receives it: team, role, or an explicit user list (PRD US-401).
+  /// Resolved and previewed before commit, never "everyone in the database".
+  audience Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cycle     ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  owner     User        @relation("SharedGoalOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  createdBy User        @relation("SharedGoalCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  instances Goal[]
+
+  @@index([orgId, cycleId])
+  @@map("shared_goals")
+}

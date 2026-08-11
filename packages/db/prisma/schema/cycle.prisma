@@ -40,7 +40,9 @@ model ReviewCycle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  phases CyclePhase[]
+  phases      CyclePhase[]
+  goalSheets  GoalSheet[]
+  sharedGoals SharedGoal[]
 
   @@unique([orgId, name])
   @@index([orgId, status])

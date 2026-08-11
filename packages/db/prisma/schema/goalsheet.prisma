@@ -1,0 +1,47 @@
+enum SheetStatus {
+  DRAFT
+  PENDING
+  RETURNED
+  APPROVED
+}
+
+/// One person's goals for one cycle.
+///
+/// The `@@unique([userId, cycleId])` is the whole point. The prototype had no
+/// cycle concept, so a person had exactly one sheet forever, mutated in place
+/// (PLAN.md F-03). Keying on (user, cycle) makes duplicate sheets impossible at
+/// the storage layer and lets closed cycles stay readable.
+model GoalSheet {
+  id      String @id @default(cuid())
+  orgId   String
+  userId  String
+  cycleId String
+
+  status SheetStatus @default(DRAFT)
+
+  submittedAt DateTime?
+  approvedAt  DateTime?
+  approverId  String?
+
+  /// Set when the manager approves. Past this point only progress fields are
+  /// writable — enforced server-side by a field whitelist in W4-11, since the
+  /// prototype trusted the client's whole payload on a locked sheet (F-04).
+  lockedAt DateTime?
+
+  /// Bumped on every submit and approval; pairs with SheetRevision (W1-09).
+  revision Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User        @relation("SheetOwner", fields: [userId], references: [id], onDelete: Cascade)
+  approver User?       @relation("SheetApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  cycle    ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  goals Goal[]
+
+  @@unique([userId, cycleId])
+  @@index([orgId, cycleId, status])
+  @@index([orgId, status])
+  @@map("goal_sheets")
+}

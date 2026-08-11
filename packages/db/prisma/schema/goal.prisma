@@ -1,0 +1,48 @@
+/// A single objective on a goal sheet.
+model Goal {
+  id      String @id @default(cuid())
+  sheetId String
+
+  thrustArea ThrustArea
+  title      String
+  uom        Uom
+
+  /// Deliberately has **no default**.
+  ///
+  /// The prototype decided this by substring-matching the goal's title —
+  /// `title.includes('tat' | 'cost' | 'reduction')` — so "Reduce customer wait
+  /// time" scored inversely by accident, "Cost Awareness Training" was treated
+  /// as a cost-reduction metric, and "Rotation" flipped on the letters t-a-t
+  /// (PLAN.md F-06).
+  ///
+  /// A default here would reintroduce the same failure in a quieter form: a
+  /// silently wrong direction that nobody chose. Callers must state it.
+  direction GoalDirection
+
+  target String
+
+  /// Decimal, not Float. Weightages must total exactly 100 and float drift is
+  /// how the prototype ended up with `Math.round(t) !== 100` in one route and a
+  /// strict `!== 100` in another (F-10).
+  weightage Decimal @db.Decimal(5, 2)
+
+  actualAchievement String?
+  status            GoalStatus @default(NOT_STARTED)
+
+  sharedGoalId String?
+  /// Only the primary owner may edit actuals on a cascaded goal; every other
+  /// instance is read-only and updates propagate from the owner (PRD US-403).
+  isPrimaryOwner Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sheet      GoalSheet   @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  sharedGoal SharedGoal? @relation(fields: [sharedGoalId], references: [id], onDelete: SetNull)
+
+  /// A cascaded goal lands on any given sheet at most once.
+  @@unique([sheetId, sharedGoalId])
+  @@index([sheetId])
+  @@index([sharedGoalId])
+  @@map("goals")
+}
