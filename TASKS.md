@@ -629,11 +629,42 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > as the validation that will reject the sheet — the prototype's third, disagreeing rule was a UI
   > `totalWeightage >= 100` button guard.
 
-- [ ] **`W2-03` · Cycle phase resolver** · **Est** 1.5h
+- [x] **`W2-03` · Cycle phase resolver** · **Est** 1.5h
   **Do:** `packages/core/src/cycle.ts` — `activePhase(cycle, at)`, `isActionAllowed(action, cycle, at)`,
   `phasesOverlap(phases)`. Replaces the global mutable period flag (F-03).
   **Done when:** tests cover before-first-phase, between phases, exact boundaries, and after-last-phase.
   **Verify:** `pnpm verify --filter=@aura/core`
+
+  > **Note (W2-03):** 258 tests across the package, 100% coverage on every module.
+  >
+  > **Phases are half-open, `[startsAt, endsAt)`.** This is the load-bearing decision and every boundary test
+  > pins it: the instant a phase starts is inside it, the instant it ends is not. It is the only convention
+  > under which back-to-back phases tile a cycle with neither a gap nor a double-booked instant, and it means
+  > a phase ending "on 31 March" is stored as ending at 1 April 00:00. W2-04's `daysOverdue` inherits the
+  > same convention — overdue begins at `endsAt`.
+  >
+  > **Status gates the dates.** `activePhase` returns `null` on a `DRAFT` or `CLOSED` cycle whatever its
+  > dates say: the dates describe a plan, the status says whether the plan is in force. `nextPhase`
+  > deliberately does *not* gate on status, because "goal setting opens on 1 April" is exactly what a draft
+  > cycle needs to be able to say.
+  >
+  > **Timing and permission are kept apart on purpose.** `isActionAllowed` answers *is it the right time* and
+  > nothing else; *is this the right person* is `can()` in W2-06, and an endpoint must satisfy both. Merging
+  > them is how the prototype let a manager's authority read as an open window and accepted a check-in write
+  > against a locked sheet (F-04).
+  >
+  > **`VIEW_RESULTS` was dropped from `CYCLE_ACTIONS`** — reading is never time-gated, and putting it in this
+  > table would have made a closed cycle invisible. Only state changes are listed; a test asserts no `VIEW_*`
+  > action ever creeps back in.
+  >
+  > Two additions beyond the task text, both small and both needed by callers: `nextPhase` (the UI has to say
+  > when a window opens) and `findPhaseOverlaps`, which returns the colliding pairs *and* their intersection
+  > rather than the specified bare boolean — `phasesOverlap` is kept as the boolean built on top. Overlapping
+  > phases are malformed data, but `activePhase` still resolves them deterministically to the
+  > earliest-starting match rather than picking arbitrarily.
+  >
+  > Loops use `.entries()` rather than indices: an indexed read is `T | undefined` under
+  > `noUncheckedIndexedAccess`, and guarding a case that cannot happen would add an untestable branch.
 
 - [ ] **`W2-04` · Deadline calculator** · **Est** 1h
   **Do:** `packages/core/src/deadlines.ts` — `deadlineFor(action, cycle)`, `daysOverdue(dueAt, now)` returning

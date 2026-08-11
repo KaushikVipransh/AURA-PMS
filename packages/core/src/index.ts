@@ -12,6 +12,24 @@
 export { parseNumeric, roundTo, type ParsedNumber } from './numeric.js';
 
 export {
+  ACTION_PHASES,
+  CYCLE_ACTIONS,
+  CYCLE_STATUSES,
+  PHASE_KEYS,
+  activePhase,
+  findPhaseOverlaps,
+  isActionAllowed,
+  nextPhase,
+  phasesOverlap,
+  type Cycle,
+  type CycleAction,
+  type CycleStatus,
+  type Phase,
+  type PhaseKey,
+  type PhaseOverlap,
+} from './cycle.js';
+
+export {
   GOAL_DIRECTIONS,
   GOAL_STATUSES,
   InvalidGoalError,
