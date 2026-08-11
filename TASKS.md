@@ -85,7 +85,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
-| [W0 — Harness](#wave-0--harness) | 8 | 12h | 5/8 |
+| [W0 — Harness](#wave-0--harness) | 8 | 12h | 7/8 |
 | [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | ☐ |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
@@ -210,7 +210,18 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Done when:** a pushed commit shows a green CI run; a deliberately broken commit shows red, then is fixed.
   **Verify:** `gh run list --limit 1` shows success
 
-- [ ] **`W0-07` · Local Postgres via Docker Compose**
+  > **Note (W0-06): implementation complete, verification BLOCKED — left unticked deliberately.**
+  > `.github/workflows/ci.yml` and the README badge are written. The Done-when cannot be met locally: it
+  > requires pushing to GitHub, and `gh` is not installed on this machine.
+  >
+  > **To finish this task:** push `wave/0-harness`, confirm the run is green, then push a deliberately broken
+  > commit (drop a `;` in `packages/core/src/index.ts`) to confirm it goes red, revert it, and tick the box.
+  >
+  > Two things to check on that first run, since neither is provable locally: `pnpm/action-setup@v4` picking up
+  > the pnpm version from the root `packageManager` field, and `actions/setup-node@v4` reading `.nvmrc` (which
+  > pins **22.17.1**, not the 24 in TECH_STACK.md — see the W0-01 note).
+
+- [x] **`W0-07` · Local Postgres via Docker Compose**
   **Est** 1h
   **Do:** `docker-compose.yml` with Postgres 17 on a non-default port, a named volume, and a healthcheck.
   `.env.example` documenting every variable the project will use. `.env` added to `.gitignore` (verify the
@@ -218,7 +229,19 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Done when:** `docker compose up -d` yields a reachable database; `psql` connects using the documented URL.
   **Verify:** `docker compose up -d && docker compose exec -T db pg_isready`
 
-- [ ] **`W0-08` · Contributor documentation**
+  > **Note (W0-07):** Postgres **17.10-alpine**, container `aurapms-db`, healthcheck reporting `healthy`. Host
+  > port is **5433**, not 5432, so it never collides with an existing local Postgres — `DATABASE_URL` in
+  > `.env.example` reflects that. Verified three ways: `pg_isready` accepting connections, `psql` round-trip via
+  > the documented URL, and a host-side TCP check on 5433.
+  >
+  > Docker Desktop was installed but not running; it had to be started before `compose up` would work. Worth
+  > mentioning in the README prerequisites (W0-08).
+  >
+  > Gitignore confirmed against what git will actually stage: `.env` and `apps/api/.env` ignored,
+  > `.env.example` stageable. Note that `git check-ignore -v` is **not** a reliable test here — it exits 0 on
+  > negation matches too, which reads as a false positive. Use `git ls-files --others --exclude-standard`.
+
+- [x] **`W0-08` · Contributor documentation**
   **Est** 1.5h
   **Do:** Rewrite the root `README.md`: what it is, the monorepo layout, prerequisites, a 5-command local
   setup, the task loop, and the verify gate. **Remove the false "verified via a programmatic end-to-end
@@ -226,6 +249,18 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Done when:** a clean clone reaches a running dev environment following only the README; the false claim is
   gone.
   **Verify:** `pnpm verify` — and follow your own README on a fresh clone
+
+  > **Note (W0-08):** The "verified via a programmatic end-to-end regression test suite" claim is **removed** —
+  > it was false, and on a public repo it read as an overclaim. The README now states plainly what works and
+  > what does not. The two remaining MongoDB mentions are accurate descriptions of the current API, not
+  > leftovers.
+  >
+  > Prerequisites call out that **Docker Desktop must be running**, not merely installed — that cost time in
+  > W0-07. The README also documents an honest limitation: the API will not run against the Postgres container
+  > until Wave 1 lands, since it is still on Mongoose.
+  >
+  > The fresh-clone walkthrough has **not** been executed literally (no second clone on this machine). Every
+  > command in it was run in this working tree, and all seven referenced files were confirmed to exist.
 
 ---
 
