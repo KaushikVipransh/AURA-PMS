@@ -786,13 +786,43 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > `RELATIONSHIP_NOT_PERMITTED`) in order of how fundamental it is, so a 403 can say something true. This
   > table is the source W3-09's endpoint matrix reads from.
 
-- [ ] **`W2-07` · Cascade planner** · **Est** 2h
+- [x] **`W2-07` · Cascade planner** · **Est** 2h
   **Do:** `packages/core/src/cascade.ts` — `planCascade(sharedGoal, recipients)` returning
   `{ willReceive, skipped: [{ userId, reason }] }`. Skips recipients who would exceed 100% weightage or the
   8-goal cap. **Returns a plan; performs nothing.** This is PRD US-402 and F-05's fix.
   **Done when:** tests cover exact-100 boundary, over-cap, at-goal-limit, already-has-this-goal, and the empty
   audience.
   **Verify:** `pnpm verify --filter=@aura/core`
+
+  > **Note (W2-07):** 485 tests across the package, 100% coverage on every module.
+  >
+  > **Skip reasons are ordered by how decisive they are**, so the answer a manager sees is the most
+  > fundamental one: duplicate → owner → already has it → unreadable weightage → at the goal limit → over
+  > 100%. Someone who is both the owner *and* at the goal limit is reported as the owner. In particular the
+  > goal-count check runs **before** the weightage check — eight goals worth one point each have plenty of
+  > headroom and no room, and reporting the headroom would be misleading.
+  >
+  > **The 100% boundary uses `WEIGHTAGE_TOTAL` and `WEIGHTAGE_TOTAL_TOLERANCE` from W2-02**, not its own
+  > numbers. A planner with an independent threshold would accept sheets the validator rejects, or refuse
+  > sheets it accepts — the same class of disagreement as the prototype's three different totals rule
+  > (F-10). A test pins the shared hundredth of tolerance in both directions.
+  >
+  > **F-05 closed the same way F-06 was:** the types carry no name. `CascadableGoal` has `ownerUserId` and
+  > nothing resembling a display name, so the prototype's string comparison — which made namesakes share an
+  > identity and broke ownership on rename — cannot be written. Tests assert a namesake and a
+  > differently-cased id both still receive the goal.
+  >
+  > **An unreadable weightage skips the recipient rather than counting as zero.** Treating it as zero would
+  > overstate the headroom and produce exactly the over-100 sheet the check exists to prevent.
+  >
+  > **Coverage found dead code, not a missing test.** The first version parsed each weightage twice — once
+  > to validate, once to sum — leaving the sum with an "if unreadable" branch the earlier check had already
+  > made unreachable. That is caution that looks like caution but does nothing. Replaced with a single pass
+  > returning either the values or the index of the first bad one, which removed the branch and the double
+  > parse together.
+  >
+  > A test asserts every recipient appears exactly once across `willReceive` and `skipped` — a planner that
+  > loses someone silently is worse than one that refuses them.
 
 - [ ] **`W2-08` · Safe CSV serializer** · **Est** 1.5h
   **Do:** `packages/core/src/csv.ts` — RFC 4180 compliant: quote all fields, double internal quotes, `\r\n`

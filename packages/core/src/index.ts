@@ -76,6 +76,18 @@ export {
 } from './policy.js';
 
 export {
+  CASCADE_SKIP_REASONS,
+  InvalidCascadeError,
+  planCascade,
+  type CascadableGoal,
+  type CascadePlan,
+  type CascadeRecipient,
+  type CascadeSkip,
+  type CascadeSkipReason,
+  type RecipientGoal,
+} from './cascade.js';
+
+export {
   GOAL_DIRECTIONS,
   GOAL_STATUSES,
   InvalidGoalError,
