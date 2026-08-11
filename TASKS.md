@@ -861,13 +861,46 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   >
   > An invalid `Date` throws rather than exporting the string "Invalid Date", which is a defect that travels.
 
-- [ ] **`W2-09` · Audit diff builder** · **Est** 1.5h
+- [x] **`W2-09` · Audit diff builder** · **Est** 1.5h
   **Do:** `packages/core/src/audit.ts` — `buildAuditEvent(actor, action, before, after)` producing a
   field-level diff with a PII redaction list (never store `passwordHash` or tokens in an audit payload — PRD
   §9 GDPR).
   **Done when:** tests cover added / removed / changed fields, nested objects, no-op changes producing no
   event, and redaction.
   **Verify:** `pnpm verify --filter=@aura/core`
+
+  > **Note (W2-09):** 595 tests across the package, 100% coverage on every module.
+  >
+  > **Signature deviation:** `buildAuditEvent(actor, action, target, before, after, options?)` — a `target`
+  > was added. An `AuditEvent` row is keyed by `entityType` and `entityId`, so the four-argument form in the
+  > task text would produce rows nobody could look up.
+  >
+  > **A no-op returns `null`, and that is the design rather than an optimisation.** A trail that records
+  > saves which altered nothing trains people to ignore it, and "who changed this field" stops being
+  > answerable by reading.
+  >
+  > **Added and removed are represented by an absent key, not by `null`.** `{ note: null }` and `{}` are
+  > different histories — one says the note was cleared, the other says it never existed. The change objects
+  > omit `before` entirely on an add and `after` entirely on a remove, so the stored JSON carries that
+  > distinction. Both are tested against each other.
+  >
+  > **Added and removed subtrees are walked leaf by leaf**, which is a security property rather than a
+  > cosmetic one: recording a newly-added object as a single opaque value would store
+  > `{ email, passwordHash }` verbatim and defeat the redaction entirely. A test asserts the raw hash appears
+  > nowhere in `JSON.stringify(event)`.
+  >
+  > **Redaction over-redacts on purpose.** Matching is by substring on normalised path segments, so
+  > `passwordHash`, `password_hash` and `hashedPassword` all match `password`, and `refreshToken` matches
+  > `token` — but `secretary` is also caught by `secret`. That trade is explicit in the doc comment and in a
+  > test: an over-redacted row loses one value, an under-redacted one puts a credential in an append-only
+  > table that erasure requests cannot easily clear (PRD §9).
+  >
+  > **Arrays are compared whole, objects are descended.** Element-wise diffing of `notifiedAt` or `tags`
+  > produces noise nobody reads; a nested `manager.email` change is exactly what someone is looking for. A
+  > type change from object to scalar is one `CHANGED` entry rather than a demolition of every leaf.
+  >
+  > `diffRecords` is exported separately because W1-09's `SheetRevision` needs the same comparison without
+  > an audit row wrapped around it.
 
 - [ ] **`W2-10` · Shared Zod contracts** · **Est** 3h
   **Do:** `packages/contracts/src/` — one file per domain, exporting request and response schemas for every

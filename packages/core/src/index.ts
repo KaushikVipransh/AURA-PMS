@@ -102,6 +102,20 @@ export {
 } from './csv.js';
 
 export {
+  CHANGE_KINDS,
+  REDACTED_FIELDS,
+  REDACTION_MARKER,
+  buildAuditEvent,
+  diffRecords,
+  type AuditActor,
+  type AuditChange,
+  type AuditEventDraft,
+  type AuditOptions,
+  type AuditTarget,
+  type ChangeKind,
+} from './audit.js';
+
+export {
   GOAL_DIRECTIONS,
   GOAL_STATUSES,
   InvalidGoalError,
