@@ -1,0 +1,70 @@
+/// Self-assessment, manager rating, calibration, and release for one sheet.
+///
+/// This is the half of the product the prototype did not have at all
+/// ([PLAN.md](PLAN.md) §6). AuraPMS covered goal setting and check-ins and
+/// stopped there; in a real PMS the appraisal is why the organization buys the
+/// tool.
+///
+/// One row per sheet, built up in stages rather than created at the end, so
+/// each stage records its own timestamp and actor.
+model Appraisal {
+  id      String @id @default(cuid())
+  sheetId String @unique
+
+  // ── Stage 1: the employee (PRD US-701) ────────────────────────────────────
+  selfRating      Int?
+  selfNarrative   String?
+  selfSubmittedAt DateTime?
+
+  // ── Stage 2: the manager (PRD US-702) ─────────────────────────────────────
+  managerId          String?
+  managerRating      Int?
+  managerNarrative   String?
+  managerSubmittedAt DateTime?
+
+  // ── Stage 3: calibration (PRD US-802) ─────────────────────────────────────
+  finalRating       Int?
+  calibratedById    String?
+  /// Required by the service when finalRating differs from managerRating, so
+  /// an adjustment always carries a reason.
+  calibrationReason String?
+
+  // ── Stage 4: release and acknowledgement (PRD US-703) ─────────────────────
+  releasedAt             DateTime?
+  acknowledgedAt         DateTime?
+  acknowledgementComment String?
+  /// Set when the employee formally disagrees; surfaces to HR.
+  disputedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sheet        GoalSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  manager      User?     @relation("AppraisalManager", fields: [managerId], references: [id], onDelete: SetNull)
+  calibratedBy User?     @relation("AppraisalCalibrator", fields: [calibratedById], references: [id], onDelete: SetNull)
+
+  goalRatings GoalRating[]
+
+  @@index([releasedAt])
+  @@map("appraisals")
+}
+
+/// Per-goal rating within an appraisal, so a final score can be explained goal
+/// by goal rather than asserted as one number.
+model GoalRating {
+  id          String @id @default(cuid())
+  appraisalId String
+  goalId      String
+
+  rating    Int?
+  narrative String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appraisal Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+  goal      Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@unique([appraisalId, goalId])
+  @@map("goal_ratings")
+}

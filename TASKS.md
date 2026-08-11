@@ -86,7 +86,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
 | [W0 — Harness](#wave-0--harness) | 8 | 12h | **8/8 ✅** |
-| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 9/14 |
+| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 11/14 |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
 | [W4 — API surface](#wave-4--api-surface) | 21 | 42h | ☐ |
@@ -407,19 +407,36 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > `SharedGoal.owner` is `onDelete: Restrict` — an owner cannot be deleted out from under a live KPI; deactivate
   > instead (PRD US-106).
 
-- [ ] **`W1-09` · `SheetRevision` model** · **Est** 1h
+- [x] **`W1-09` · `SheetRevision` model** · **Est** 1h
   **Do:** `revision.prisma` — `sheetId`, `revision` int, `snapshot` Json, `reason` enum
   (`SUBMIT`|`APPROVE`|`ADJUST`), `actorId`, `createdAt`. `@@unique([sheetId, revision])`. No update or delete
   path.
   **Done when:** migration applies; uniqueness enforced.
   **Verify:** `pnpm verify`
 
-- [ ] **`W1-10` · `Appraisal` model** · **Est** 1.5h
+- [x] **`W1-10` · `Appraisal` model** · **Est** 1.5h
   **Do:** `appraisal.prisma` — `sheetId` unique FK, `selfRating`, `selfNarrative`, `selfSubmittedAt`,
   `managerRating`, `managerNarrative`, `managerSubmittedAt`, `finalRating`, `calibratedById`,
   `calibrationReason`, `releasedAt`, `acknowledgedAt`. Per-goal ratings as a child table.
   **Done when:** migration applies; the full appraisal lifecycle can be represented in a test.
   **Verify:** `pnpm verify`
+
+  > **Note (W1-09 / W1-10):** One migration, `20260811110212_revisions_appraisals`. 10 integration tests.
+  >
+  > **`Appraisal` is the schema for the gap named in [PLAN.md](PLAN.md) §6** — the half of a PMS the prototype
+  > did not have at all. It is built up in four stages on one row (self → manager → calibration → release), so
+  > each stage keeps its own value, timestamp, and actor. A test asserts the manager's rating of 3 is still
+  > readable after calibration moved the final to 4, which is what makes an adjustment defensible (PRD US-802).
+  > Landing the schema now, even though the UI is W6-08/W6-11, is deliberate: it means the model does not churn
+  > late.
+  >
+  > `SheetRevision` is append-only by construction — `@@unique([sheetId, revision])` makes a silent overwrite
+  > fail rather than pass, and both `SheetRevision.actor` and `SharedGoal.owner` are `onDelete: Restrict`, since
+  > an audit trail that loses its actor is not one. Deactivate people instead (PRD US-106).
+  >
+  > Caught by the gate: an unused destructured `user` in a test. Worth noting that **Vitest does not typecheck**
+  > — all 42 integration tests passed while `tsc` was failing. The two checks are independent, which is why the
+  > gate runs both.
 
 - [ ] **`W1-11` · `AuditEvent`, `Escalation`, `Notification` models** · **Est** 2h
   **Do:** Three files. `AuditEvent` — `orgId`, `actorId`, `action`, `entityType`, `entityId`, `before` Json,

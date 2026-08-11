@@ -1,0 +1,37 @@
+enum RevisionReason {
+  SUBMIT
+  APPROVE
+  ADJUST
+}
+
+/// An immutable snapshot of a goal sheet at a moment that mattered.
+///
+/// Written on every submit, approval, and manager adjustment. The prototype
+/// overwrote goals in place, so once a sheet changed there was no way to answer
+/// "what did we actually agree to" — which is the question a disputed rating
+/// turns on (PLAN.md F-09, PRD US-1103).
+///
+/// Append-only by construction: there is no service that updates or deletes a
+/// revision, and `@@unique([sheetId, revision])` makes a silent overwrite fail
+/// rather than pass.
+model SheetRevision {
+  id      String @id @default(cuid())
+  sheetId String
+
+  revision Int
+  reason   RevisionReason
+
+  /// The full sheet — goals, weightages, targets — as it stood.
+  snapshot Json
+
+  actorId String
+
+  createdAt DateTime @default(now())
+
+  sheet GoalSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  actor User      @relation("RevisionActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@unique([sheetId, revision])
+  @@index([sheetId, createdAt])
+  @@map("sheet_revisions")
+}

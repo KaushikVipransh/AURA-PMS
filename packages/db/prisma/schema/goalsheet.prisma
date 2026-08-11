@@ -38,7 +38,9 @@ model GoalSheet {
   approver User?       @relation("SheetApprover", fields: [approverId], references: [id], onDelete: SetNull)
   cycle    ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
 
-  goals Goal[]
+  goals     Goal[]
+  revisions SheetRevision[]
+  appraisal Appraisal?
 
   @@unique([userId, cycleId])
   @@index([orgId, cycleId, status])

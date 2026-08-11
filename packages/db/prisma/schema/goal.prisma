@@ -40,6 +40,8 @@ model Goal {
   sheet      GoalSheet   @relation(fields: [sheetId], references: [id], onDelete: Cascade)
   sharedGoal SharedGoal? @relation(fields: [sharedGoalId], references: [id], onDelete: SetNull)
 
+  ratings GoalRating[]
+
   /// A cascaded goal lands on any given sheet at most once.
   @@unique([sheetId, sharedGoalId])
   @@index([sheetId])

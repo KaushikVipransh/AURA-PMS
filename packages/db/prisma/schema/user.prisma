@@ -43,10 +43,13 @@ model User {
 
   // Back-references. Prisma requires both sides of every relation, so a new
   // model always adds a line here.
-  goalSheets          GoalSheet[]  @relation("SheetOwner")
-  approvedSheets      GoalSheet[]  @relation("SheetApprover")
-  ownedSharedGoals    SharedGoal[] @relation("SharedGoalOwner")
-  createdSharedGoals  SharedGoal[] @relation("SharedGoalCreator")
+  goalSheets           GoalSheet[]     @relation("SheetOwner")
+  approvedSheets       GoalSheet[]     @relation("SheetApprover")
+  ownedSharedGoals     SharedGoal[]    @relation("SharedGoalOwner")
+  createdSharedGoals   SharedGoal[]    @relation("SharedGoalCreator")
+  authoredRevisions    SheetRevision[] @relation("RevisionActor")
+  appraisalsAsManager  Appraisal[]     @relation("AppraisalManager")
+  appraisalsCalibrated Appraisal[]     @relation("AppraisalCalibrator")
 
   @@unique([orgId, email])
   /// Required target for the composite self-relation above.
