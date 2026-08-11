@@ -590,13 +590,44 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   >
   > `smoke.test.ts` was deleted as its own comment instructed, now that the package has real tests.
 
-- [ ] **`W2-02` · Weightage validation** · **Est** 1.5h
+- [x] **`W2-02` · Weightage validation** · **Est** 1.5h
   **Do:** `packages/core/src/weightage.ts` — `validateWeightages(goals)` returning structured errors, not
   booleans. Rules: total = 100 ± 0.01, each ≥ 10, count 3–8. Export the constants so no call site can invent
   its own. Closes F-10.
   **Done when:** tests cover each rule and the float-tolerance boundary (99.995 passes, 99.98 fails); errors
   name the offending goal.
   **Verify:** `pnpm verify --filter=@aura/core`
+
+  > **Note (W2-02):** 143 tests across the package, 100% coverage on every module.
+  >
+  > **A shared `numeric.ts` was extracted, which makes W2-01 and W2-02 not quite independent.** Both need the
+  > same tri-state parse of Prisma's `string | number | null` columns, and two copies of a number parser is
+  > precisely the duplication this rebuild exists to remove — the prototype's bugs were *all* coercion bugs
+  > (`Number(x) || 1`, `Number(x) || 0`), and they were bugs because each call site coerced differently.
+  > `parseNumeric` and `roundTo` now live in `numeric.ts` and `scoring.ts` imports them. Wave 2's tasks are
+  > independent in the sense that matters — no shared state, no ordering requirement — but the "no task
+  > touches another task's files" claim in this wave's header is now approximate, as it already is in Wave 1.
+  >
+  > **The tests caught a real bug in the implementation and two wrong assumptions in the tests.** Worth
+  > recording because the details are not guessable:
+  >
+  > - `33.34 + 33.33 + 33.33` is **exactly** 100 in IEEE 754. My float-residue example was fiction. A genuine
+  >   one, found by search: `10 + 58.01 + 31.99` = `99.999999999999985789`. That is a legitimate sheet the
+  >   prototype's strict `total !== 100` **rejected**, while its `Math.round(total) !== 100` **accepted** a
+  >   sheet totalling 99.6. Both are now regression tests.
+  > - `100.01 - 100` evaluates to `0.010000000000005116`, which is greater than a 0.01 tolerance. The stated
+  >   inclusive boundary was therefore unreachable — a real bug. The drift is rounded before comparison now,
+  >   as well as the total.
+  > - `roundTo(-2.345, 2)` is `-2.35`, not `-2.34`: `-2.345 * 100` is `-234.50000000000003`, so there is no
+  >   half to break. Half-way behaviour follows the bits, not a rule, and the test now documents that rather
+  >   than pinning a value the function cannot honour.
+  >
+  > **Unreadable weightages are excluded from the total**, not counted as zero, so a bad value produces one
+  > issue naming it rather than a second confusing "your sheet does not add up".
+  >
+  > `remainingWeightage` is exported so the UI's "15% left to allocate" hint is computed from the same total
+  > as the validation that will reject the sheet — the prototype's third, disagreeing rule was a UI
+  > `totalWeightage >= 100` button guard.
 
 - [ ] **`W2-03` · Cycle phase resolver** · **Est** 1.5h
   **Do:** `packages/core/src/cycle.ts` — `activePhase(cycle, at)`, `isActionAllowed(action, cycle, at)`,

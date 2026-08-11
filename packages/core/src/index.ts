@@ -9,6 +9,8 @@
  * Modules land in Wave 2 — see TASKS.md W2-01 … W2-09.
  */
 
+export { parseNumeric, roundTo, type ParsedNumber } from './numeric.js';
+
 export {
   GOAL_DIRECTIONS,
   GOAL_STATUSES,
@@ -26,3 +28,18 @@ export {
   type Uom,
   type WeightedGoal,
 } from './scoring.js';
+
+export {
+  MAX_GOALS_PER_SHEET,
+  MIN_GOALS_PER_SHEET,
+  MIN_GOAL_WEIGHTAGE,
+  WEIGHTAGE_ISSUE_CODES,
+  WEIGHTAGE_TOTAL,
+  WEIGHTAGE_TOTAL_TOLERANCE,
+  remainingWeightage,
+  validateWeightages,
+  type WeightableGoal,
+  type WeightageIssue,
+  type WeightageIssueCode,
+  type WeightageValidation,
+} from './weightage.js';

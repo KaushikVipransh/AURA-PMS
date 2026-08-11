@@ -26,6 +26,8 @@
  * Everything in this file is pure: same input, same output, no clock, no I/O.
  */
 
+import { parseNumeric } from './numeric.js';
+
 /** Unit of measurement. Mirrors the `Uom` enum in `packages/db`. */
 export const UOMS = ['NUMERIC', 'PERCENT', 'TIMELINE', 'ZERO_BASED'] as const;
 export type Uom = (typeof UOMS)[number];
@@ -117,35 +119,6 @@ export class InvalidGoalError extends Error {
     this.name = 'InvalidGoalError';
     this.field = field;
   }
-}
-
-type ParsedNumber =
-  | { readonly kind: 'absent' }
-  | { readonly kind: 'invalid' }
-  | { readonly kind: 'ok'; readonly value: number };
-
-const ABSENT: ParsedNumber = { kind: 'absent' };
-const INVALID: ParsedNumber = { kind: 'invalid' };
-
-/**
- * Tri-state parse. `null`, `undefined` and blank strings are *absent*;
- * anything non-finite is *invalid*. `Number('')` is 0 in JavaScript, which is
- * exactly the coercion that let blank actuals look like real zeroes, so blank
- * is checked before the conversion.
- */
-function parseNumeric(raw: string | number | null | undefined): ParsedNumber {
-  if (raw == null) {
-    return ABSENT;
-  }
-  if (typeof raw === 'number') {
-    return Number.isFinite(raw) ? { kind: 'ok', value: raw } : INVALID;
-  }
-  const trimmed = raw.trim();
-  if (trimmed === '') {
-    return ABSENT;
-  }
-  const value = Number(trimmed);
-  return Number.isFinite(value) ? { kind: 'ok', value } : INVALID;
 }
 
 /** Constrain a raw achievement ratio to [0, 1]. Over-delivery caps at 1. */
