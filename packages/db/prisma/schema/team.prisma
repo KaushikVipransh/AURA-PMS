@@ -1,0 +1,26 @@
+/// Organizational unit. Gives escalations (US-902) and team rollups (US-1003)
+/// a structure to walk, and gives shared-goal cascades a real audience to
+/// target instead of "everyone in the database" (PLAN.md F-05).
+model Team {
+  id    String @id @default(cuid())
+  orgId String
+  name  String
+
+  leadId       String?
+  parentTeamId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead         User?        @relation("TeamLead", fields: [leadId], references: [id], onDelete: SetNull)
+
+  parentTeam Team?  @relation("TeamHierarchy", fields: [parentTeamId], references: [id], onDelete: SetNull)
+  childTeams Team[] @relation("TeamHierarchy")
+
+  members User[] @relation("TeamMembers")
+
+  @@unique([orgId, name])
+  @@index([orgId, parentTeamId])
+  @@map("teams")
+}

@@ -1,0 +1,21 @@
+/// The tenant root. Every other record carries an orgId, and every query is
+/// scoped by it (W3-06) — the structural fix for PLAN.md F-02, where
+/// `GET /api/goalsheets` returned every sheet in the database to every caller.
+model Organization {
+  id   String @id @default(cuid())
+  name String
+  /// URL-safe identifier, unique across the deployment.
+  slug String @unique
+
+  /// Month the fiscal year opens, 1-12. Drives default cycle dates.
+  fiscalYearStart Int  @default(4)
+  settings        Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  teams Team[]
+
+  @@map("organizations")
+}

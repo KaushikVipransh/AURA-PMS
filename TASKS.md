@@ -86,7 +86,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
 | [W0 — Harness](#wave-0--harness) | 8 | 12h | **8/8 ✅** |
-| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 2/14 |
+| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 5/14 |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
 | [W4 — API surface](#wave-4--api-surface) | 21 | 42h | ☐ |
@@ -304,24 +304,43 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > with a regression test, and covers the missing-`DATABASE_URL` error, singleton reuse, method binding, and
   > disconnect — 100% statements/functions on the file.
 
-- [ ] **`W1-02` · `Organization` model** · **Est** 1h
+- [x] **`W1-02` · `Organization` model** · **Est** 1h
   **Do:** `prisma/schema/organization.prisma` — `id`, `name`, `slug` (unique), `fiscalYearStart`, `settings`
   (Json), timestamps. Migration + a test asserting slug uniqueness is rejected at the DB level.
   **Done when:** migration applies; duplicate-slug insert throws.
   **Verify:** `pnpm verify`
 
-- [ ] **`W1-03` · `User` model with self-referential manager** · **Est** 1.5h
+- [x] **`W1-03` · `User` model with self-referential manager** · **Est** 1.5h
   **Do:** `user.prisma` — `id`, `orgId` FK, `email` (unique per org), `name`, `managerId` FK → User (nullable),
   `status` enum, timestamps. Index `(orgId, managerId)`. Test asserts the self-relation resolves and that a
   cross-org `managerId` is rejected.
   **Done when:** migration applies; both tests pass.
   **Verify:** `pnpm verify`
 
-- [ ] **`W1-04` · `Team` model** · **Est** 1h
+- [x] **`W1-04` · `Team` model** · **Est** 1h
   **Do:** `team.prisma` — `orgId`, `name`, `leadId` FK → User, `parentTeamId` FK → Team (nullable). Optional
   `User.teamId`.
   **Done when:** migration applies; a two-level team hierarchy can be created in a test.
   **Verify:** `pnpm verify`
+
+  > **Note (W1-02 / W1-03 / W1-04): shipped as one migration, `20260811104453_identity`.** They cannot be
+  > separated: `User.teamId → Team` and `Team.leadId → User` are mutually referential, so either table alone
+  > fails to create. 13 integration tests cover all three.
+  >
+  > **Cross-org managers are rejected by Postgres, not by application code.** `User` carries
+  > `@@unique([id, orgId])`, and the manager self-relation is the composite FK
+  > `(managerId, orgId) → (id, orgId)`. Pointing at a manager in another tenant finds no matching row and the
+  > insert fails. Null `managerId` still works — a composite FK with a NULL column passes under MATCH SIMPLE —
+  > so the reporting chain still has a top. This makes the tenancy boundary structural rather than something
+  > every future query has to remember.
+  >
+  > **`prisma generate` is now wired into `build` and `postinstall`.** `generated/` is gitignored, so a fresh
+  > clone and CI would otherwise have no client at all. Verified by deleting `generated/` and every turbo cache:
+  > `pnpm verify` regenerates and passes 28/28. Note that `pnpm install` alone is **not** sufficient — it
+  > short-circuits with "Already up to date" and skips postinstall. `@aura/db`'s lint/typecheck/test tasks
+  > therefore declare an explicit dependency on `@aura/db#build` in turbo.json.
+  >
+  > Email uniqueness is `@@unique([orgId, email])` — the same address in two tenants is two different people.
 
 - [ ] **`W1-05` · `ReviewCycle` + `CyclePhase` models** · **Est** 1.5h
   **Do:** `cycle.prisma` — cycle with `orgId`, `name`, `fiscalYear`, `status` enum, `ratingScale` (Json

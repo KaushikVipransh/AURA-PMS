@@ -1,0 +1,50 @@
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DEACTIVATED
+}
+
+/// A real person, replacing the prototype's hardcoded `employeeId: 'emp-123'`
+/// and `employeeName: 'Vipransh Kaushik'` string literals (PLAN.md F-02).
+///
+/// `managerId` is the reporting line the escalation chain walks (US-902). The
+/// prototype had no such relationship at all, so its shared-KPI cascade matched
+/// people by lowercased display name (F-05) and its escalations defaulted to
+/// the string "L1 Team Manager".
+model User {
+  id    String @id @default(cuid())
+  orgId String
+  email String
+  name  String
+
+  /// Multiple roles per user — an HR admin is usually also an employee with
+  /// their own goal sheet. Checked server-side on every request; the prototype
+  /// kept this in localStorage and never verified it (F-01).
+  roles  Role[]     @default([EMPLOYEE])
+  status UserStatus @default(INVITED)
+
+  managerId String?
+  teamId    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  /// Self-relation keyed on (id, orgId) rather than id alone. The composite
+  /// reference means Postgres itself rejects a manager from another
+  /// organization — the tenancy boundary is a database constraint, not a
+  /// convention someone has to remember.
+  manager User?  @relation("ReportingLine", fields: [managerId, orgId], references: [id, orgId], onDelete: NoAction, onUpdate: NoAction)
+  reports User[] @relation("ReportingLine")
+
+  team     Team?  @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  ledTeams Team[] @relation("TeamLead")
+
+  @@unique([orgId, email])
+  /// Required target for the composite self-relation above.
+  @@unique([id, orgId])
+  @@index([orgId, managerId])
+  @@index([orgId, status])
+  @@map("users")
+}

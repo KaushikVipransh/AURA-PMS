@@ -10,7 +10,7 @@
     "./testing": "./src/testing.ts"
   },
   "scripts": {
-    "build": "echo no-op",
+    "build": "prisma generate",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage",
@@ -19,7 +19,8 @@
     "db:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "db:studio": "dotenv -e ../../.env -- prisma studio",
     "db:reset": "dotenv -e ../../.env -- prisma migrate reset --force",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "postinstall": "prisma generate"
   },
   "devDependencies": {
     "@aura/config": "workspace:*",
