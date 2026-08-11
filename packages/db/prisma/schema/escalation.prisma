@@ -1,0 +1,61 @@
+enum EscalationRule {
+  GOALS_NOT_SUBMITTED
+  APPROVAL_OVERDUE
+  CHECK_IN_MISSING
+  SELF_APPRAISAL_OVERDUE
+  MANAGER_RATING_OVERDUE
+}
+
+/// How far up the reporting chain a breach has travelled (PRD US-902).
+enum EscalationTier {
+  EMPLOYEE
+  MANAGER
+  SKIP_LEVEL_HR
+}
+
+enum EscalationStatus {
+  ACTIVE
+  RESOLVED
+}
+
+/// A missed deadline, tracked until someone resolves it.
+///
+/// `dueAt` comes from the cycle's phase dates, which is the whole difference
+/// from the prototype. That engine had no deadlines to compare against and
+/// floored every result at four days with `Math.max(elapsed, 4)`, so a sheet
+/// saved seconds earlier reported "4 days overdue" (PLAN.md F-08). It also ran
+/// only when an admin clicked a button, and its "notification chain" was a
+/// string in a document — nothing was ever sent.
+model Escalation {
+  id            String @id @default(cuid())
+  orgId         String
+  cycleId       String
+  subjectUserId String
+
+  rule  EscalationRule
+  tier  EscalationTier   @default(EMPLOYEE)
+  status EscalationStatus @default(ACTIVE)
+
+  /// The real deadline this breached.
+  dueAt DateTime
+
+  /// One entry per notification actually sent, so the chain is auditable
+  /// rather than asserted (PRD US-1203).
+  notifiedAt DateTime[] @default([])
+
+  resolvedById   String?
+  resolvedAt     DateTime?
+  resolutionNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subject    User  @relation("EscalationSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  resolvedBy User? @relation("EscalationResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  /// One live escalation per person per rule per cycle. Re-running the nightly
+  /// job must update the existing row, not pile up duplicates.
+  @@unique([cycleId, subjectUserId, rule])
+  @@index([orgId, status, dueAt])
+  @@map("escalations")
+}

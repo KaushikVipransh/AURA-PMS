@@ -1,0 +1,49 @@
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SUPPRESSED
+}
+
+/// One delivery of one notification to one person.
+///
+/// The prototype's "notification chain" only wrote a status string onto an
+/// escalation document — nothing was ever sent to anyone (PLAN.md F-08). A row
+/// per channel makes delivery a fact with a status and a timestamp, which is
+/// what the delivery log in PRD US-1203 reports on.
+model Notification {
+  id     String @id @default(cuid())
+  orgId  String
+  userId String
+
+  /// Dotted event, e.g. `goalsheet.returned`, `appraisal.released`.
+  type    String
+  channel NotificationChannel
+  status  NotificationStatus  @default(PENDING)
+
+  /// Rendering data plus the deep link to the action needed (PRD US-1201).
+  payload Json @default("{}")
+
+  /// Compliance notices ignore the user's channel preferences and are labelled
+  /// as such in the UI (PRD US-1202).
+  mandatory Boolean @default(false)
+
+  sentAt       DateTime?
+  readAt       DateTime?
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Drives the unread badge without a table scan.
+  @@index([userId, readAt])
+  @@index([orgId, status, createdAt])
+  @@map("notifications")
+}

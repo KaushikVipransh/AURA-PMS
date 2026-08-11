@@ -50,6 +50,10 @@ model User {
   authoredRevisions    SheetRevision[] @relation("RevisionActor")
   appraisalsAsManager  Appraisal[]     @relation("AppraisalManager")
   appraisalsCalibrated Appraisal[]     @relation("AppraisalCalibrator")
+  auditEvents          AuditEvent[]    @relation("AuditActor")
+  escalations          Escalation[]    @relation("EscalationSubject")
+  resolvedEscalations  Escalation[]    @relation("EscalationResolver")
+  notifications        Notification[]  @relation("NotificationRecipient")
 
   @@unique([orgId, email])
   /// Required target for the composite self-relation above.

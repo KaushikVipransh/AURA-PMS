@@ -1,0 +1,40 @@
+/// Append-only record of every state change.
+///
+/// The prototype logged exactly one action — `ADMIN_FORCE_UNLOCK` — out of a
+/// dozen mutations, and attributed it to the hardcoded string
+/// "System Compliance Board" because there was no actor to record
+/// (PLAN.md F-09). Approvals, reworks, weightage adjustments, cascades, and
+/// period changes all left no trace.
+///
+/// W4-01 writes these inside the same transaction as the mutation, so an audit
+/// failure rolls the change back (PRD US-1101), and W4-02 fails the build if a
+/// mutating service is added without one.
+model AuditEvent {
+  id      String @id @default(cuid())
+  orgId   String
+  actorId String
+
+  /// Dotted verb, e.g. `goalsheet.approve`, `cycle.activate`.
+  action String
+
+  entityType String
+  entityId   String
+
+  /// Field-level diff. Never contains a password hash or a token — the builder
+  /// in W2-09 redacts, since GDPR erasure must not be blocked by an audit row
+  /// (PRD §9).
+  before Json?
+  after  Json?
+
+  ip        String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  actor User @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([orgId, entityType, entityId])
+  @@index([orgId, createdAt])
+  @@index([orgId, actorId, createdAt])
+  @@map("audit_events")
+}

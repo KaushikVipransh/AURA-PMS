@@ -86,7 +86,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
 | [W0 — Harness](#wave-0--harness) | 8 | 12h | **8/8 ✅** |
-| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 11/14 |
+| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 12/14 |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
 | [W4 — API surface](#wave-4--api-surface) | 21 | 42h | ☐ |
@@ -438,7 +438,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > — all 42 integration tests passed while `tsc` was failing. The two checks are independent, which is why the
   > gate runs both.
 
-- [ ] **`W1-11` · `AuditEvent`, `Escalation`, `Notification` models** · **Est** 2h
+- [x] **`W1-11` · `AuditEvent`, `Escalation`, `Notification` models** · **Est** 2h
   **Do:** Three files. `AuditEvent` — `orgId`, `actorId`, `action`, `entityType`, `entityId`, `before` Json,
   `after` Json, `ip`, `userAgent`, `createdAt`; indexed on `(orgId, entityType, entityId)` and
   `(orgId, createdAt)`. `Escalation` — `orgId`, `cycleId`, `subjectUserId`, `rule`, `dueAt`, `level`, `status`,
@@ -446,6 +446,22 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   `readAt`.
   **Done when:** all three migrations apply and are queryable by their indexes.
   **Verify:** `pnpm verify`
+
+  > **Note (W1-11):** One migration, `20260811110745_governance`. 12 integration tests. **The schema is now
+  > complete** — 54 integration tests across all models.
+  >
+  > `AuditEvent.actor` is `onDelete: Restrict`: a trail that loses its actor is not a trail. `before`/`after`
+  > are nullable JSON, and W2-09's builder redacts password hashes and tokens before they land, so a GDPR
+  > erasure is never blocked by an audit row (PRD §9).
+  >
+  > `Escalation` carries `dueAt` from the cycle's phase dates and
+  > `@@unique([cycleId, subjectUserId, rule])` — the nightly job must *update* the existing row, not pile up a
+  > duplicate every night. `notifiedAt` is a timestamp array, one entry per notification actually sent, so the
+  > chain is auditable rather than asserted. Different rules may breach for the same person simultaneously.
+  >
+  > `Notification` is a row per delivery with a status and a failure reason, replacing the prototype's chain —
+  > which was a string on a document with nothing ever sent (F-08). `@@index([userId, readAt])` serves the
+  > unread badge without a table scan.
 
 - [x] **`W1-12` · Testcontainers integration-test harness** · **Est** 2h
   **Do:** `packages/db/src/testing.ts` — start a disposable Postgres container, run `migrate deploy`, expose
