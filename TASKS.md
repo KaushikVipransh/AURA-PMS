@@ -85,7 +85,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
-| [W0 — Harness](#wave-0--harness) | 8 | 12h | 7/8 |
+| [W0 — Harness](#wave-0--harness) | 8 | 12h | **8/8 ✅** |
 | [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | ☐ |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
@@ -203,23 +203,25 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   >
   > `format:check` is deliberately **not** in the gate — see the W0-03 note on the legacy tree.
 
-- [ ] **`W0-06` · GitHub Actions CI running the same gate**
+- [x] **`W0-06` · GitHub Actions CI running the same gate**
   **Est** 1.5h
   **Do:** `.github/workflows/ci.yml` — Node 24 via `.nvmrc`, pnpm with store caching, Turborepo cache, then
   `pnpm verify`. Trigger on push and pull_request. Add a status badge to the README.
   **Done when:** a pushed commit shows a green CI run; a deliberately broken commit shows red, then is fixed.
   **Verify:** `gh run list --limit 1` shows success
 
-  > **Note (W0-06): implementation complete, verification BLOCKED — left unticked deliberately.**
-  > `.github/workflows/ci.yml` and the README badge are written. The Done-when cannot be met locally: it
-  > requires pushing to GitHub, and `gh` is not installed on this machine.
+  > **Note (W0-06):** Verified end to end against the real runner, both directions:
+  > - `4422d2f` (clean) → **success** in ~60s
+  > - `0aebdc8` (a deliberate `const x: number = 'string'` in `@aura/core`) → **failure** in ~40s
+  > - `4c44f79` (revert) → **success**
   >
-  > **To finish this task:** push `wave/0-harness`, confirm the run is green, then push a deliberately broken
-  > commit (drop a `;` in `packages/core/src/index.ts`) to confirm it goes red, revert it, and tick the box.
+  > The negative case matters: without it a workflow that silently passes everything looks identical to a
+  > working one. Both unprovable-locally assumptions held — `pnpm/action-setup@v4` picked up pnpm from the root
+  > `packageManager` field, and `actions/setup-node@v4` read `.nvmrc` (22.17.1, not the 24 in TECH_STACK.md —
+  > see the W0-01 note).
   >
-  > Two things to check on that first run, since neither is provable locally: `pnpm/action-setup@v4` picking up
-  > the pnpm version from the root `packageManager` field, and `actions/setup-node@v4` reading `.nvmrc` (which
-  > pins **22.17.1**, not the 24 in TECH_STACK.md — see the W0-01 note).
+  > `gh` is not installed here; run status was polled from the public REST API at
+  > `/repos/:owner/:repo/actions/runs?branch=…`, which needs no auth for a public repo.
 
 - [x] **`W0-07` · Local Postgres via Docker Compose**
   **Est** 1h
