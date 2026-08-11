@@ -96,6 +96,21 @@ function civilDayStart(instant: Date, timeZone: string): number {
 }
 
 /**
+ * Whether two instants fall on the same civil date in a timezone.
+ *
+ * The escalation evaluator (W2-05) uses this to answer "have we already told
+ * them today", which is a question about dates, not about elapsed hours — a
+ * reminder at 23:00 and another at 01:00 are two different days regardless of
+ * the two hours between them.
+ */
+export function sameCivilDay(a: Date, b: Date, timeZone: string = DEFAULT_TIME_ZONE): boolean {
+  assertValidDate(a, 'a');
+  assertValidDate(b, 'b');
+
+  return civilDayStart(a, timeZone) === civilDayStart(b, timeZone);
+}
+
+/**
  * How many whole calendar days late something is, in the given timezone.
  *
  * **Calendar days, not 24-hour periods**, and that is a decision rather than an

@@ -35,7 +35,26 @@ export {
   daysOverdueFor,
   deadlineFor,
   isOverdue,
+  sameCivilDay,
 } from './deadlines.js';
+
+export {
+  DEFAULT_ESCALATION_THRESHOLDS,
+  ESCALATION_REASONS,
+  ESCALATION_RULES,
+  ESCALATION_STATUSES,
+  ESCALATION_TIERS,
+  evaluate,
+  evaluateAll,
+  tierFor,
+  type EscalationDecision,
+  type EscalationReason,
+  type EscalationRule,
+  type EscalationState,
+  type EscalationStatus,
+  type EscalationThresholds,
+  type EscalationTier,
+} from './escalation.js';
 
 export {
   GOAL_DIRECTIONS,

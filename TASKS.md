@@ -704,13 +704,41 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > `assertValidDate` was exported from `cycle.ts` rather than copied, on the same reasoning as W2-02's
   > `numeric.ts`: `deadlines.ts` already builds on `cycle.ts`, so the dependency direction is unchanged.
 
-- [ ] **`W2-05` · Escalation rule evaluator** · **Est** 2h
+- [x] **`W2-05` · Escalation rule evaluator** · **Est** 2h
   **Do:** `packages/core/src/escalation.ts` — `evaluate(state, rules, now)` returning the tier
   (`EMPLOYEE`|`MANAGER`|`SKIP_LEVEL_HR`) and whether a notification is due. Pure: takes deadlines and current
   state, returns intent. Never sends anything.
   **Done when:** tests cover each tier threshold, resolved items being excluded, and idempotency across repeat
   evaluation on the same day.
   **Verify:** `pnpm verify --filter=@aura/core`
+
+  > **Note (W2-05):** 350 tests across the package, 100% coverage on every module.
+  >
+  > **Every decision carries a `reason`, including the silent ones.** `NOT_OVERDUE`, `RESOLVED`,
+  > `FIRST_BREACH`, `TIER_RAISED`, `DAILY_REMINDER`, `ALREADY_NOTIFIED_TODAY`. An escalation job that
+  > silently does nothing is indistinguishable from one that is broken — which is precisely what the
+  > prototype's was, since its "notification chain" was a string in a document describing sends that never
+  > happened. `evaluateAll` returns a decision per input including the ones that came to nothing, so the
+  > caller can log them.
+  >
+  > **Idempotency is split honestly between the function and its caller.** The function is pure, so
+  > re-running it against *unchanged* state repeats the decision — that is stated in the doc comment and
+  > asserted in a test, rather than being quietly implied. Safe re-runs come from the caller recording the
+  > send into `notifiedAt`; the test drives both passes to prove the second decides `ALREADY_NOTIFIED_TODAY`.
+  >
+  > **A tier climb overrides the daily quiet period.** Reaching HR is not something to hold until tomorrow,
+  > so `TIER_RAISED` notifies even when something was already sent today. Only a steady tier respects the
+  > once-per-day rule.
+  >
+  > **"Today" is a calendar date in the org's timezone**, not a rolling 24 hours — a send at 23:00 and one at
+  > 01:00 are two days apart despite the two hours between them. Reuses `sameCivilDay`, newly exported from
+  > `deadlines.ts` for this.
+  >
+  > **`now` has no default**, and neither does `thresholds`. A defaulted `now` is exactly the ambient-clock
+  > smell the purity rule exists to prevent; it was written that way first and removed before the gate ran.
+  >
+  > Resolved breaches never notify and never climb past the tier they were resolved at, but still report
+  > their real day count — resolved is not the same as untrue.
 
 - [ ] **`W2-06` · Permission policy** · **Est** 2.5h
   **Do:** `packages/core/src/policy.ts` — `can(actor, action, resource): boolean` for every action in
