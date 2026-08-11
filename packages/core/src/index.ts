@@ -30,6 +30,14 @@ export {
 } from './cycle.js';
 
 export {
+  DEFAULT_TIME_ZONE,
+  daysOverdue,
+  daysOverdueFor,
+  deadlineFor,
+  isOverdue,
+} from './deadlines.js';
+
+export {
   GOAL_DIRECTIONS,
   GOAL_STATUSES,
   InvalidGoalError,

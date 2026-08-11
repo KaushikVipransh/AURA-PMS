@@ -102,8 +102,11 @@ export type PhaseOverlap = {
 /**
  * An invalid `Date` compares false against everything, so it would quietly
  * produce "no active phase" rather than an error. Named rather than silent.
+ *
+ * Exported for `./deadlines.ts`, which builds on this module and needs the
+ * same guarantee about the dates it is handed.
  */
-function assertValidDate(value: Date, label: string): void {
+export function assertValidDate(value: Date, label: string): void {
   if (Number.isNaN(value.getTime())) {
     throw new RangeError(`${label} is not a valid date.`);
   }

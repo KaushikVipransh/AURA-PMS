@@ -666,12 +666,43 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > Loops use `.entries()` rather than indices: an indexed read is `T | undefined` under
   > `noUncheckedIndexedAccess`, and guarding a case that cannot happen would add an untestable branch.
 
-- [ ] **`W2-04` · Deadline calculator** · **Est** 1h
+- [x] **`W2-04` · Deadline calculator** · **Est** 1h
   **Do:** `packages/core/src/deadlines.ts` — `deadlineFor(action, cycle)`, `daysOverdue(dueAt, now)` returning
   **real elapsed days with no floor** (F-08's fabricated minimum of 4 is what this replaces). Timezone-safe.
   **Done when:** tests assert 0 for not-yet-due, exact boundaries at midnight, and correct values across a DST
   transition.
   **Verify:** `pnpm verify --filter=@aura/core`
+
+  > **Note (W2-04):** 304 tests across the package, 100% coverage on every module.
+  >
+  > **"Days overdue" means calendar days, not 24-hour periods.** This is the decision the DST requirement
+  > forces, and it is not an implementation detail. When someone reads *3 days overdue* in an escalation
+  > email they mean three dates have turned over. Counting elapsed hours reports **0** across a
+  > spring-forward — the deadline was yesterday lunchtime, it is lunchtime again, and only 23 hours have
+  > passed. A test asserts both answers side by side so the difference is visible rather than assumed.
+  >
+  > The implementation reduces both instants to their civil date in the org's timezone and subtracts those
+  > as UTC midnights, which are exactly 86,400,000 ms apart with no exceptions. `Intl` is a pure lookup — no
+  > network, no filesystem, no clock — so it sits inside the purity rule, and it throws on an unknown
+  > timezone at construction, which is tested.
+  >
+  > **`isOverdue` is deliberately separate from `daysOverdue(...) > 0`.** Something due at midnight and read
+  > at 09:00 is *late* but is *0 days* late. Collapsing the two means either treating a fresh miss as
+  > not-late or inflating it to a full day — the smaller cousin of the F-08 bug this task exists to remove.
+  > The F-08 regression test asserts 0, 1, 2, 3, 4 at one-day intervals; the prototype's
+  > `Math.max(elapsedDays, 4)` read every one of them as 4.
+  >
+  > **The deadline is the phase's `endsAt`**, the same boundary at which `isActionAllowed` goes false. One
+  > instant, two readings, agreeing by construction rather than by coincidence.
+  >
+  > **Two of my own timezone assertions were wrong and the run caught them.** Being east of UTC does not
+  > mean being further overdue — what matters is whether a local midnight falls between the two instants.
+  > For an instant pair of `16 Apr 22:00Z` → `17 Apr 02:00Z`: UTC counts 1, `Europe/London` (UTC+1) counts
+  > 1, but `Asia/Tokyo` (UTC+9) counts **0** and `America/New_York` (UTC-4) counts **0**, because both land
+  > on a single local date. All four are now tests.
+  >
+  > `assertValidDate` was exported from `cycle.ts` rather than copied, on the same reasoning as W2-02's
+  > `numeric.ts`: `deadlines.ts` already builds on `cycle.ts`, so the dependency direction is unchanged.
 
 - [ ] **`W2-05` · Escalation rule evaluator** · **Est** 2h
   **Do:** `packages/core/src/escalation.ts` — `evaluate(state, rules, now)` returning the tier
