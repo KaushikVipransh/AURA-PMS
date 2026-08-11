@@ -10,6 +10,3 @@
  */
 
 export {};
-
-// TEMPORARY — deliberate type error to prove CI fails. Reverted immediately.
-export const ciProbe: number = 'not a number';
