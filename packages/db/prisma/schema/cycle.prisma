@@ -1,0 +1,72 @@
+enum CycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum PhaseKey {
+  GOAL_SETTING
+  CHECK_IN
+  APPRAISAL
+  CALIBRATION
+  RESULTS
+}
+
+/// A performance period with dated phases.
+///
+/// This replaces `GLOBAL_ACTIVE_PERIOD`, the module-level string variable the
+/// prototype used to track the current phase (PLAN.md F-03). That had two
+/// failure modes: it reset on every Vercel cold start so concurrent instances
+/// disagreed about what period it was, and changing it ran
+/// `updateMany({}, { $set: { quarter } })`, stamping the new period onto every
+/// sheet ever created and destroying all history.
+///
+/// Cycles are rows. Closing one leaves it readable forever.
+model ReviewCycle {
+  id         String @id @default(cuid())
+  orgId      String
+  name       String
+  fiscalYear Int
+
+  status CycleStatus @default(DRAFT)
+
+  /// Snapshotted onto the cycle rather than referenced, so changing the scale
+  /// later never rewrites a historical rating (PRD US-203).
+  ratingScale Json @default("{}")
+
+  /// Per-cycle escalation thresholds (PRD US-204).
+  escalationRules Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  phases CyclePhase[]
+
+  @@unique([orgId, name])
+  @@index([orgId, status])
+  @@map("review_cycles")
+}
+
+/// A dated window within a cycle. Deadlines derive from `endsAt`, which is what
+/// lets the escalation engine report real overdue days instead of the
+/// prototype's `Math.max(elapsed, 4)` floor (PLAN.md F-08).
+model CyclePhase {
+  id      String @id @default(cuid())
+  cycleId String
+
+  key   PhaseKey
+  label String
+
+  startsAt DateTime
+  endsAt   DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cycle ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  /// One window per phase kind per cycle.
+  @@unique([cycleId, key])
+  @@index([cycleId, startsAt])
+  @@map("cycle_phases")
+}

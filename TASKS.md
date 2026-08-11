@@ -86,7 +86,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
 | [W0 — Harness](#wave-0--harness) | 8 | 12h | **8/8 ✅** |
-| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 5/14 |
+| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 6/14 |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
 | [W4 — API surface](#wave-4--api-surface) | 21 | 42h | ☐ |
@@ -342,12 +342,29 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   >
   > Email uniqueness is `@@unique([orgId, email])` — the same address in two tenants is two different people.
 
-- [ ] **`W1-05` · `ReviewCycle` + `CyclePhase` models** · **Est** 1.5h
+- [x] **`W1-05` · `ReviewCycle` + `CyclePhase` models** · **Est** 1.5h
   **Do:** `cycle.prisma` — cycle with `orgId`, `name`, `fiscalYear`, `status` enum, `ratingScale` (Json
   snapshot per PRD US-203). Phase with `cycleId`, `key` enum, `label`, `startsAt`, `endsAt`. Partial unique
   index enforcing at most one `ACTIVE` cycle per org.
   **Done when:** migration applies; a second active cycle in the same org is rejected by the database.
   **Verify:** `pnpm verify`
+
+  > **Note (W1-05):** This is the *time* axis from [PLAN.md](PLAN.md) §2. 9 integration tests.
+  >
+  > **The single-active-cycle rule is a hand-written partial unique index.** Prisma's schema language cannot
+  > express `WHERE status = 'ACTIVE'`, so the migration was generated with `--create-only` and the index appended
+  > before applying:
+  > ```sql
+  > CREATE UNIQUE INDEX "review_cycles_one_active_per_org"
+  >   ON "review_cycles" ("orgId") WHERE "status" = 'ACTIVE';
+  > ```
+  > Enforcing it in Postgres means no service, seed, or bulk import can open a second active cycle by accident.
+  > Tested from both sides: a second ACTIVE in one org is rejected, while many DRAFT/CLOSED cycles coexist and
+  > two organizations may each hold one. **Use `--create-only` for any future constraint Prisma can't model.**
+  >
+  > `status` defaults to `DRAFT`, so a cycle is never live by accident. `ratingScale` is snapshotted onto the
+  > cycle as JSON rather than referenced, so changing the scale later cannot rewrite a historical rating
+  > (PRD US-203).
 
 - [ ] **`W1-06` · `GoalSheet` model** · **Est** 1.5h
   **Do:** `goalsheet.prisma` — `orgId`, `userId` FK, `cycleId` FK, `status` enum, `submittedAt`, `approvedAt`,
