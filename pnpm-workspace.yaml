@@ -2,8 +2,16 @@ packages:
   - "apps/*"
   - "packages/*"
 
-# Prisma's postinstall downloads and positions its query engine binaries.
-# pnpm blocks package build scripts by default; these two are required.
+# pnpm blocks package build scripts by default. Only enable what genuinely
+# needs one.
 allowBuilds:
+  # Downloads and positions Prisma's query engine binaries. Required.
   '@prisma/engines': true
   prisma: true
+
+  # Pulled in transitively by testcontainers for its SSH transport, which we
+  # do not use — Docker is local. Skipping these avoids native compilation on
+  # Windows and costs nothing.
+  cpu-features: false
+  ssh2: false
+  protobufjs: false

@@ -86,7 +86,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
 | [W0 — Harness](#wave-0--harness) | 8 | 12h | **8/8 ✅** |
-| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 1/14 |
+| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 2/14 |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
 | [W4 — API surface](#wave-4--api-surface) | 21 | 42h | ☐ |
@@ -374,13 +374,33 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Done when:** all three migrations apply and are queryable by their indexes.
   **Verify:** `pnpm verify`
 
-- [ ] **`W1-12` · Testcontainers integration-test harness** · **Est** 2h
+- [x] **`W1-12` · Testcontainers integration-test harness** · **Est** 2h
   **Do:** `packages/db/src/testing.ts` — start a disposable Postgres container, run `migrate deploy`, expose
   `withTestDb()` giving each test an isolated transaction rolled back afterwards. Wire a `test:integration`
   turbo task.
   **Done when:** `pnpm verify:integration` runs a sample test against real Postgres and cleans up its
   container.
   **Verify:** `pnpm verify:integration`
+
+  > **Note (W1-12): done ahead of W1-02 … W1-11, deliberately.** Those tasks assert *database-level* constraints
+  > — unique indexes, foreign keys, enum types — which cannot be tested without a database. Order within a wave
+  > is free, so the harness comes first.
+  >
+  > Postgres 17-alpine in a disposable container, provisioned with **`migrate deploy`** rather than `db push`,
+  > so the same migration files that reach production are what tests execute against. A broken migration fails
+  > here instead of on deploy.
+  >
+  > Isolation is transaction-per-test via `withTestDb()`, always rolled back — no truncation, so tests can run
+  > in any order. **Caveat for every later task:** the body must use the `tx` it is handed. Writes through the
+  > ambient `prisma` singleton fall outside the transaction and will not be undone.
+  >
+  > Three bugs the gate caught: `vitest.config.ts` also matched `*.integration.test.ts`, so the fast gate tried
+  > to run them with no container (now excluded); the hand-rolled `TestDb` type omitted a different set of
+  > methods than Prisma's real transaction client and would not assign (now derived to match); and the rollback
+  > sentinel is an `Error` subclass rather than a `Symbol`, since throwing a non-Error loses the stack trace.
+  >
+  > 85s on first run (image pull), 18s cached. Integration stays **out** of `pnpm verify`, so the fast gate
+  > needs no Docker.
 
 - [ ] **`W1-13` · Seed script — realistic organization** · **Est** 2.5h
   **Do:** `packages/db/prisma/seed.ts` — one org, 25 users across 4 teams with a 3-level reporting chain, two
