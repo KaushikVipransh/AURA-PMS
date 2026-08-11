@@ -57,6 +57,25 @@ export {
 } from './escalation.js';
 
 export {
+  DENIAL_REASONS,
+  POLICY,
+  POLICY_ACTIONS,
+  RELATIONSHIPS,
+  ROLES,
+  can,
+  check,
+  relationshipOf,
+  type ActionPolicy,
+  type Actor,
+  type DenialReason,
+  type PolicyAction,
+  type PolicyDecision,
+  type Relationship,
+  type Resource,
+  type Role,
+} from './policy.js';
+
+export {
   GOAL_DIRECTIONS,
   GOAL_STATUSES,
   InvalidGoalError,

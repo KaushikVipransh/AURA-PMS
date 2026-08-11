@@ -740,12 +740,51 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > Resolved breaches never notify and never climb past the tier they were resolved at, but still report
   > their real day count — resolved is not the same as untrue.
 
-- [ ] **`W2-06` · Permission policy** · **Est** 2.5h
+- [x] **`W2-06` · Permission policy** · **Est** 2.5h
   **Do:** `packages/core/src/policy.ts` — `can(actor, action, resource): boolean` for every action in
   [PRD.md](PRD.md) §6. Relationship-aware: self, direct manager, manager chain, HR, org admin.
   **Done when:** a table-driven test enumerates every role × action × relationship combination with an expected
   result. This table is the source of truth for W3-09's endpoint matrix.
   **Verify:** `pnpm verify --filter=@aura/core`
+
+  > **Note (W2-06):** 450 tests across the package, 100% coverage on every module. **34 actions × 4 roles ×
+  > 5 relationships = 680 cells**, every one asserted.
+  >
+  > **A role's permissions are not a flat list — they are a set of relationships per role.** The first
+  > attempt modelled `roles` and `relationships` as two independent lists and it was wrong: "HR may view any
+  > sheet" and "an employee may view their own" cannot both come out of one cross-product without also
+  > granting an employee every sheet in the org. So each action maps role → the relationships that role may
+  > exercise, and a role absent from an action cannot perform it at all. "HR may view goal sheets" is true;
+  > "HR may write your self-appraisal" is not, and the two axes compose to say so.
+  >
+  > **The expectation table in the test is written from the PRD stories, not read back off `POLICY`.** A
+  > test that derives its expectations from the code under test proves only that the code equals itself. All
+  > 680 cells passed on the first run against the independent table.
+  >
+  > **Three self-dealing exclusions are deliberate and individually tested.** `APPROVE_GOAL_SHEET`,
+  > `RETURN_GOAL_SHEET`, `ADJUST_WEIGHTAGE` and `RATE_REPORT` never permit `SELF` for *any* role including
+  > `ORG_ADMIN` — approving your own goals is the thing an approval workflow exists to prevent.
+  > `ADJUST_RATING_IN_CALIBRATION` excludes `SELF` so calibration is not a back route to your own rating.
+  > `DEACTIVATE_USER` excludes `SELF` so the last org admin cannot lock the organisation out of its own
+  > account.
+  >
+  > **`RATE_REPORT` is `DIRECT_REPORT` only.** A skip-level manager influences an outcome through
+  > calibration, not by overwriting the rating of someone they do not work with (US-802). Asserted in both
+  > directions.
+  >
+  > **Tenancy is not a permission.** `OTHER_ORG` appears in no entry, and a test asserts it never will:
+  > every action, for every role, across an org boundary, is refused (US-105). Relationship resolution puts
+  > the org check first, so a resource in another org with the *same* user id resolves to `OTHER_ORG` rather
+  > than `SELF`.
+  >
+  > **Invariants that are genuinely independent of the table**, and therefore worth more than the grid:
+  > roles form a strict ladder (`ORG_ADMIN` ⊇ `HR_ADMIN` ⊇ `MANAGER` ⊇ `EMPLOYEE`) with at least one real
+  > gain per step; an `EMPLOYEE` reaches nothing beyond `SELF` on any of the 34 actions; a deactivated actor
+  > is refused all 680 cells; no entry is an empty relationship list, which would be a silent denial.
+  >
+  > `check()` returns the reason (`INACTIVE_ACTOR`, `CROSS_ORG`, `ROLE_NOT_PERMITTED`,
+  > `RELATIONSHIP_NOT_PERMITTED`) in order of how fundamental it is, so a 403 can say something true. This
+  > table is the source W3-09's endpoint matrix reads from.
 
 - [ ] **`W2-07` · Cascade planner** · **Est** 2h
   **Do:** `packages/core/src/cascade.ts` — `planCascade(sharedGoal, recipients)` returning
