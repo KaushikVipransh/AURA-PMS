@@ -88,6 +88,20 @@ export {
 } from './cascade.js';
 
 export {
+  CSV_LINE_ENDING,
+  FORMULA_GUARD,
+  FORMULA_TRIGGERS,
+  UTF8_BOM,
+  escapeCsvField,
+  serializeCsv,
+  toCsv,
+  toCsvRow,
+  type CsvColumn,
+  type CsvOptions,
+  type CsvValue,
+} from './csv.js';
+
+export {
   GOAL_DIRECTIONS,
   GOAL_STATUSES,
   InvalidGoalError,

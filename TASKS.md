@@ -824,12 +824,42 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > A test asserts every recipient appears exactly once across `willReceive` and `skipped` — a planner that
   > loses someone silently is worse than one that refuses them.
 
-- [ ] **`W2-08` · Safe CSV serializer** · **Est** 1.5h
+- [x] **`W2-08` · Safe CSV serializer** · **Est** 1.5h
   **Do:** `packages/core/src/csv.ts` — RFC 4180 compliant: quote all fields, double internal quotes, `\r\n`
   line endings. Neutralize leading `= + - @ \t \r` with a `'` prefix. Closes F-11.
   **Done when:** tests cover embedded commas, quotes, newlines, unicode, and each formula-injection prefix
   vector.
   **Verify:** `pnpm verify --filter=@aura/core`
+
+  > **Note (W2-08):** 539 tests across the package, 100% coverage on every module.
+  >
+  > **Neutralisation applies to strings only, and that is the one judgement call here.** A real `number`
+  > renders as digits with at most a leading `-`, which no spreadsheet can read as anything but a negative
+  > number. Guarding it would turn every negative value in an export into text and break the arithmetic the
+  > export exists for. The danger is user-supplied text, so `-5` the number is exported plainly while `'-5'`
+  > the string is guarded — both are tests, as is a payload disguised as a negative
+  > (`-2+3+cmd|' /c calc'!A0`).
+  >
+  > **F-11 is two problems, not one.** A comma in a goal title silently shifted every later column on the
+  > row (structure); a title beginning `=` was handed to the spreadsheet as an expression (execution). A cell
+  > starting `=` can invoke `HYPERLINK`, `WEBSERVICE`, or with DDE enabled a shell command — and the person
+  > opening the file is usually HR, on a corporate laptop, from a system they trust. Both are covered
+  > separately.
+  >
+  > **Every field is quoted, always.** A few extra bytes in exchange for removing the entire class of "which
+  > characters need escaping" bugs, and it is what keeps a field containing CRLF from being read as two
+  > records.
+  >
+  > **The trigger set is exactly OWASP's:** `=`, `+`, `-`, `@`, tab, carriage return. Tab and CR are in there
+  > because leading whitespace is stripped before evaluation, so `\t=1+1` still evaluates — both are tested.
+  > A test pins the list so nothing is quietly dropped, and another asserts a full-width `＝` (U+FF1D) is
+  > *not* guarded, since spreadsheets do not parse it and guarding it would corrupt legitimate text.
+  >
+  > **No trailing line ending**, so a round trip through a strict parser gains no phantom empty row. A
+  > `UTF8_BOM` option is provided but off by default — without it Excel reads the local codepage and every
+  > non-ASCII name arrives mangled, which the unicode tests would not have caught on their own.
+  >
+  > An invalid `Date` throws rather than exporting the string "Invalid Date", which is a defect that travels.
 
 - [ ] **`W2-09` · Audit diff builder** · **Est** 1.5h
   **Do:** `packages/core/src/audit.ts` — `buildAuditEvent(actor, action, before, after)` producing a
