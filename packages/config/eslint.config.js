@@ -7,7 +7,15 @@ import prettier from 'eslint-config-prettier';
 
 /** Build artefacts and vendored code that no package should lint. */
 export const ignores = {
-  ignores: ['**/dist/**', '**/build/**', '**/coverage/**', '**/.turbo/**', '**/node_modules/**'],
+  ignores: [
+    '**/dist/**',
+    '**/build/**',
+    '**/coverage/**',
+    '**/.turbo/**',
+    '**/node_modules/**',
+    // Prisma's generated client — machine-written, not ours to lint.
+    '**/generated/**',
+  ],
 };
 
 /**

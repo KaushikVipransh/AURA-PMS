@@ -19,7 +19,11 @@
     "verify:integration": "turbo run test:integration",
     "verify:full": "pnpm verify && pnpm verify:integration && pnpm test:e2e",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:migrate": "pnpm --filter @aura/db db:migrate",
+    "db:generate": "pnpm --filter @aura/db db:generate",
+    "db:studio": "pnpm --filter @aura/db db:studio",
+    "db:reset": "pnpm --filter @aura/db db:reset"
   },
   "devDependencies": {
     "prettier": "^3.9.6",

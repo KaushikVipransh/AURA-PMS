@@ -1,0 +1,66 @@
+// AuraPMS — base schema.
+//
+// This file holds only the datasource, the generator, and enums shared by more
+// than one model. Every model lives in its own .prisma file in this folder
+// (multi-file schema), which is what lets the W1-02 … W1-11 tasks be written
+// in parallel without colliding. See TASKS.md.
+
+// Prisma 7 no longer accepts `url` here — the connection lives in
+// prisma.config.ts for the CLI, and reaches the client via a driver adapter.
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../generated/prisma"
+}
+
+// ─── Shared enums ───────────────────────────────────────────────────────────
+// Only enums used by two or more models belong here. Anything used by a single
+// model is declared in that model's file.
+
+/// Who someone is within an organization. Checked server-side on every request
+/// — the prototype kept this in localStorage and never verified it (PLAN.md
+/// F-01).
+enum Role {
+  EMPLOYEE
+  MANAGER
+  HR_ADMIN
+  ORG_ADMIN
+}
+
+/// Unit of measure. Shared by Goal and SharedGoal.
+enum Uom {
+  NUMERIC
+  PERCENT
+  TIMELINE
+  ZERO_BASED
+}
+
+/// Which way is good. Shared by Goal and SharedGoal.
+///
+/// This exists because the prototype inferred scoring direction from substrings
+/// in the goal's title — `title.includes('tat' | 'cost' | 'reduction')` — so
+/// "Reduce customer wait time" scored inversely by accident and "Rotation"
+/// flipped on the letters t-a-t (PLAN.md F-06). Making it an explicit enum
+/// means the inference has nowhere to live.
+enum GoalDirection {
+  HIGHER_IS_BETTER
+  LOWER_IS_BETTER
+}
+
+/// Progress state of an individual goal. Shared by Goal and SharedGoal.
+enum GoalStatus {
+  NOT_STARTED
+  ON_TRACK
+  COMPLETED
+}
+
+/// Strategic category a goal contributes to. Shared by Goal and SharedGoal.
+enum ThrustArea {
+  BUSINESS_GROWTH
+  OPERATIONAL_EXCELLENCE
+  TECHNOLOGY_AND_INNOVATION
+  COMPLIANCE_AND_RISK
+}

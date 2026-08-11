@@ -207,7 +207,13 @@ and maintains) · MySQL/PlanetScale (no recursive CTEs historically, weaker JSON
 SQLite/Turso (excellent, but concurrent writes from API plus worker plus migrations is not its strength) ·
 CockroachDB/Yugabyte (distributed SQL solving a scale problem this app will never have).
 
-### Prisma 6
+### Prisma 6 — *built on 7.9.1*
+
+> **As built:** Prisma resolved to **7.9.1**. Three changes matter downstream, recorded in the W1-01 note in
+> [TASKS.md](TASKS.md): `url` is no longer permitted in `datasource` (it lives in `prisma.config.ts`, and
+> reaches the client via a **`@prisma/adapter-pg` driver adapter**); the generator is `prisma-client`, emitting
+> `.ts` to an explicit output path rather than into `node_modules`; and pnpm needs `allowBuilds` for
+> `@prisma/engines`. Multi-file schema is GA, so the parallelism argument below holds without a preview flag.
 
 **Why.** Typed query results end-to-end. A real, reviewable, version-controlled migration system —
 `prisma migrate` produces SQL files in git, which the prototype's implicit Mongoose schema evolution never

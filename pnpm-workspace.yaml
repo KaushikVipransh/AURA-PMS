@@ -1,3 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Prisma's postinstall downloads and positions its query engine binaries.
+# pnpm blocks package build scripts by default; these two are required.
+allowBuilds:
+  '@prisma/engines': true
+  prisma: true

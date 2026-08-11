@@ -140,6 +140,10 @@ dist/
 build/
 .output/
 
+# Prisma client — generated from the schema, never edited by hand.
+# Regenerate with `pnpm db:generate`.
+packages/db/generated/
+
 # Turborepo / tooling caches
 .turbo/
 *.tsbuildinfo

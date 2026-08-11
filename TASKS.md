@@ -86,7 +86,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
 | [W0 — Harness](#wave-0--harness) | 8 | 12h | **8/8 ✅** |
-| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | ☐ |
+| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 1/14 |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
 | [W4 — API surface](#wave-4--api-surface) | 21 | 42h | ☐ |
@@ -271,7 +271,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 > **Goal:** the complete schema exists, with constraints, migrations, and a realistic seed.
 > **Independence:** W1-01 first (Prisma init). W1-02…W1-11 each own one `.prisma` file and are fully parallel.
 
-- [ ] **`W1-01` · Prisma init with multi-file schema**
+- [x] **`W1-01` · Prisma init with multi-file schema**
   **Est** 1.5h
   **Do:** Install Prisma in `packages/db`. Enable `prismaSchemaFolder`. Create `prisma/schema/schema.prisma`
   holding only the datasource, generator, and shared enums. Export a singleton `PrismaClient` with the pino
@@ -279,6 +279,30 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Done when:** `pnpm --filter @aura/db prisma migrate dev --name init` produces a migration; the generated
   client imports and type-checks from another package.
   **Verify:** `pnpm verify`
+
+  > **Note (W1-01): Prisma resolved to 7.9.1, not the 6 in TECH_STACK.md.** Version 7 changed enough to matter,
+  > and later tasks need to know:
+  > - **`url` is no longer allowed in `datasource`.** The connection moves to `prisma.config.ts` for the CLI,
+  >   and reaches the runtime client through a **driver adapter** — `@prisma/adapter-pg` + `pg`. Added both.
+  > - **`prisma migrate` needs `datasource.url` in `prisma.config.ts`** specifically; setting only the env var
+  >   is not enough.
+  > - **The generator is `prisma-client`, not `prisma-client-js`**, and emits `.ts` to an explicit `output`
+  >   path rather than into `node_modules`. Output goes to `packages/db/generated/` — gitignored, lint-ignored,
+  >   regenerate with `pnpm db:generate`. It typechecks cleanly under our strict flags, which was not a given.
+  > - **pnpm blocks Prisma's postinstall by default.** `allowBuilds` in `pnpm-workspace.yaml` enables
+  >   `@prisma/engines` and `prisma`; without it the query engine binaries never download.
+  >
+  > Multi-file schema (`prisma/schema/`) is **GA in 7** — no preview flag needed. `schema.prisma` holds the
+  > datasource, generator, and the five enums shared by two or more models; every model gets its own file, which
+  > is what keeps W1-02 … W1-11 free of collisions.
+  >
+  > **Design fix found by the gate:** the first version constructed the PrismaClient eagerly at module load, so
+  > importing a single *enum* from `@aura/db` opened a database connection — which broke `apps/api`'s tests
+  > immediately and would have broken every consumer without a database (`packages/core` unit tests, the
+  > contract schemas, any typecheck-only CI job). It is now a lazy proxy: construction is deferred to first
+  > property access, and `prisma.user.findMany()` ergonomics are unchanged. `src/client.test.ts` locks this in
+  > with a regression test, and covers the missing-`DATABASE_URL` error, singleton reuse, method binding, and
+  > disconnect — 100% statements/functions on the file.
 
 - [ ] **`W1-02` · `Organization` model** · **Est** 1h
   **Do:** `prisma/schema/organization.prisma` — `id`, `name`, `slug` (unique), `fiscalYearStart`, `settings`
