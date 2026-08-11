@@ -20,7 +20,8 @@
     "db:studio": "dotenv -e ../../.env -- prisma studio",
     "db:reset": "dotenv -e ../../.env -- prisma migrate reset --force",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:seed": "dotenv -e ../../.env -- tsx prisma/seed.ts"
   },
   "devDependencies": {
     "@aura/config": "workspace:*",
@@ -33,6 +34,7 @@
     "eslint": "^10.8.1",
     "prisma": "^7.9.1",
     "testcontainers": "^12.1.0",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },

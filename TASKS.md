@@ -86,7 +86,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 | Wave | Tasks | Est. | Status |
 |---|---|---|---|
 | [W0 — Harness](#wave-0--harness) | 8 | 12h | **8/8 ✅** |
-| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | 12/14 |
+| [W1 — Data foundation](#wave-1--data-foundation) | 14 | 22h | **14/14 ✅** |
 | [W2 — Pure domain logic](#wave-2--pure-domain-logic) | 10 | 20h | ☐ |
 | [W3 — Auth & identity](#wave-3--auth--identity) | 9 | 20h | ☐ |
 | [W4 — API surface](#wave-4--api-surface) | 21 | 42h | ☐ |
@@ -491,19 +491,59 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > 85s on first run (image pull), 18s cached. Integration stays **out** of `pnpm verify`, so the fast gate
   > needs no Docker.
 
-- [ ] **`W1-13` · Seed script — realistic organization** · **Est** 2.5h
+- [x] **`W1-13` · Seed script — realistic organization** · **Est** 2.5h
   **Do:** `packages/db/prisma/seed.ts` — one org, 25 users across 4 teams with a 3-level reporting chain, two
   review cycles (one `CLOSED` with full history and ratings, one `ACTIVE` mid-goal-setting), goal sheets in
   every status, one shared goal, audit events, escalations. Deterministic via a fixed seed.
   **Done when:** `pnpm db:seed` on an empty database produces the full org; running it twice is idempotent.
   **Verify:** `pnpm verify && pnpm db:seed && pnpm db:seed`
 
-- [ ] **`W1-14` · Delete the MongoDB implementation** · **Est** 1h
+  > **Note (W1-13):** Produces 25 users · 4 teams · 2 cycles · 50 sheets · 200 goals · 25 appraisals ·
+  > 2 escalations. Both runs returned **identical counts**, so idempotency holds. The first run went against a
+  > database carrying only migrations — integration tests use the disposable container, never this one — so the
+  > from-empty condition is met.
+  >
+  > **Every id is written explicitly, never generated.** Two runs on two machines produce byte-identical data,
+  > so a failing test is reproducible rather than "worked on mine". Everything upserts on its known id, which is
+  > what makes a second run a no-op instead of a duplicate-key error.
+  >
+  > One seeded goal is titled *"Reduce cost per transaction"* on purpose — it contains the substring `cost`,
+  > which used to flip scoring direction by accident (F-06). With `direction` explicit, the title is just a
+  > title, and the seed data proves it.
+  >
+  > **`pnpm db:reset` is blocked for AI agents.** Prisma 7 refuses `migrate reset` from an agent without
+  > recorded human consent, since it irreversibly destroys all data. That is a good guardrail and the script is
+  > kept as-is — a human running it interactively is unaffected. Do not work around it; if an agent needs a
+  > clean database, use the Testcontainers harness (W1-12), which is empty by construction.
+
+- [x] **`W1-14` · Delete the MongoDB implementation** · **Est** 1h
   **Do:** Remove `apps/api/models/`, the Mongoose dependency, the `connectDb` logic, and `MONGO_URI`
   references. `apps/api/server.js` remains temporarily but with all DB access removed — route bodies become
   `501 Not Implemented` stubs, rewritten in Wave 4.
   **Done when:** no `mongoose` import remains anywhere; `pnpm verify` is green.
   **Verify:** `pnpm verify && ! grep -rq mongoose apps packages --include=*.ts --include=*.js`
+
+  > **Note (W1-14): Wave 1 complete.** `apps/api/models/` deleted, `mongoose` removed from dependencies,
+  > `server.js` reduced to a transitional shell — a CORS allowlist, `/healthz`, and a single `501` handler for
+  > `/api/*` that names the task rewriting it. Keeping the shell rather than deleting the file means the route
+  > surface stays reviewable while it is replaced endpoint by endpoint, and `apps/web` keeps something to point
+  > at until W6-02.
+  >
+  > **The W0-03 lint quarantine for `apps/api` is lifted** — it covered 16 unused `catch (error)` bindings in
+  > code that no longer exists. `apps/api/eslint.config.js` is now the plain shared config. The `apps/web`
+  > quarantine remains until Wave 6.
+  >
+  > `prisma/seed.ts` needed adding to `packages/db/tsconfig.json`'s `include`, or the type-aware linter cannot
+  > resolve it — same failure mode as `vitest.config.ts` in W0-04. **Anything new outside `src/` needs the same
+  > treatment.** `no-console` is disabled for the seed alone: reporting what it wrote is its job.
+  >
+  > **Gotcha worth remembering:** when Docker is not running, the integration gate fails with
+  > `No test files found, exiting with code 1` — which is entirely misleading. The real error is Testcontainers
+  > failing to reach the daemon in global setup. Check `docker info` first. Docker Desktop had stopped between
+  > runs during this wave.
+  >
+  > `apps/api/.env` still contains the old `MONGO_URI`. It is gitignored and was never committed, so it was left
+  > alone rather than edited — but it is the Atlas credential flagged for rotation in PLAN.md §8.
 
 ---
 

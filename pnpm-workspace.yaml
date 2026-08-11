@@ -15,3 +15,6 @@ allowBuilds:
   cpu-features: false
   ssh2: false
   protobufjs: false
+
+  # tsx bundles esbuild, whose install script positions its platform binary.
+  esbuild: true

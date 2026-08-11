@@ -1,4 +1,4 @@
 {
   "extends": "@aura/config/tsconfig.node.json",
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "prisma/**/*.ts", "prisma.config.ts"]
 }
