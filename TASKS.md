@@ -552,7 +552,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 > **Goal:** every business rule exists once, as a pure function, exhaustively tested.
 > **Independence:** total. No task here touches the database, HTTP, or another task's files. Fully parallel.
 
-- [ ] **`W2-01` · Scoring engine** · **Est** 3h
+- [x] **`W2-01` · Scoring engine** · **Est** 3h
   **Do:** `packages/core/src/scoring.ts` — `scoreGoal(goal): number` covering every `uom` × `direction`
   combination: Numeric and `%` linear both directions, `Zero-based` binary, `Timeline` by milestone status.
   Clamp to [0,1]. `scoreSheet(goals)` weights by `weightage`. **No string inspection of `title` anywhere** —
@@ -560,6 +560,35 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Done when:** a table-driven test covers all UoM × direction × edge-case combinations (zero target, zero
   actual, actual > target, negative, null); ≥ 95% coverage on the file.
   **Verify:** `pnpm verify --filter=@aura/core`
+
+  > **Note (W2-01):** 79 table-driven tests, 100% coverage on `scoring.ts` (target was ≥ 95%).
+  >
+  > **Lower-is-better is deliberately not the prototype's formula.** The prototype used `target / actual`,
+  > which never reaches zero — missing a 5-defect target by 5× still scored 0.2 — and inverted outright on a
+  > negative actual. `scoring.ts` uses the symmetric linear form `1 ± (actual − target) / |target|`, which is
+  > monotone across the whole number line, reduces to plain `actual / target` in the ordinary
+  > higher-is-better case, and has a rule you can say out loud: *double the target, lose the goal*. Concrete
+  > difference — target 5, actual 6 scores 0.8 here and 0.833 in the prototype.
+  >
+  > **Malformed goals throw rather than score.** The prototype wrote `Number(goal.target) || 1`, so a target
+  > of `0`, `''`, or `'N/A'` silently became a target of 1 and produced a plausible-looking number. The
+  > engine distinguishes *absent* (`null` / blank → scores 0, "nothing reported yet") from *invalid*
+  > (`'N/A'`, `NaN`, `Infinity` → `InvalidGoalError` naming the field). A failed appraisal beats a wrong one.
+  >
+  > **`ZERO_BASED` validates rather than ignores.** It is the degenerate `target = 0` case of the linear
+  > rule, so a `ZERO_BASED` goal carrying a non-zero target throws instead of having its target quietly
+  > discarded, and `HIGHER_IS_BETTER` on it throws too — "more incidents is better" is not a goal.
+  >
+  > **`TIMELINE`'s `ON_TRACK = 0.5`** is inherited policy, now a single exported constant (`TIMELINE_SCORES`)
+  > rather than a literal in two JSX files.
+  >
+  > **Enum drift risk, accepted and tracked.** `Uom`, `GoalDirection` and `GoalStatus` are re-declared as
+  > `as const` arrays in core because the purity rule forbids importing `@aura/db`. The guard — a test in
+  > `packages/db` asserting the Prisma enums and these arrays hold identical members — is **not yet written**;
+  > it belongs with W2-10, which faces the same mirroring problem for Zod schemas. Until then the two can
+  > drift silently.
+  >
+  > `smoke.test.ts` was deleted as its own comment instructed, now that the package has real tests.
 
 - [ ] **`W2-02` · Weightage validation** · **Est** 1.5h
   **Do:** `packages/core/src/weightage.ts` — `validateWeightages(goals)` returning structured errors, not

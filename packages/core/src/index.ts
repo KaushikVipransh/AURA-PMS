@@ -9,4 +9,20 @@
  * Modules land in Wave 2 — see TASKS.md W2-01 … W2-09.
  */
 
-export {};
+export {
+  GOAL_DIRECTIONS,
+  GOAL_STATUSES,
+  InvalidGoalError,
+  TIMELINE_SCORES,
+  UOMS,
+  clamp01,
+  scoreGoal,
+  scoreSheet,
+  type GoalDirection,
+  type GoalScore,
+  type GoalStatus,
+  type ScorableGoal,
+  type SheetScore,
+  type Uom,
+  type WeightedGoal,
+} from './scoring.js';
