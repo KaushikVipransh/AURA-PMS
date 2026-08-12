@@ -33,6 +33,8 @@ import { prisma } from '@aura/db';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 
+import { getMailer } from './mailer.js';
+
 /**
  * Fail loudly and early rather than booting with a guessable secret.
  *
@@ -68,10 +70,35 @@ export const auth = betterAuth({
        disagree about what is acceptable. */
     minPasswordLength: 12,
     maxPasswordLength: 200,
-    /* Verification is wired in W3-04 alongside the reset flow, which needs the
-       same mail transport. Until then an unverified user can still sign in --
-       recorded here rather than left to be discovered. */
+    /* Email verification stays off until W5 has a real mail transport. An
+       unverified user can still sign in -- recorded here rather than left to
+       be discovered. */
     requireEmailVerification: false,
+
+    /* One hour, which is also the library's default, stated explicitly because
+       PRD US-103 specifies it and a default that changes underneath us would
+       change a documented guarantee silently. */
+    resetPasswordTokenExpiresIn: 60 * 60,
+
+    /*
+     * Defaults to FALSE, which is the wrong default for a password reset.
+     *
+     * The common reason to reset a password is that someone else might know
+     * it. Leaving their existing sessions alive means the attacker keeps the
+     * access the reset was meant to remove — for up to seven days.
+     */
+    revokeSessionsOnPasswordReset: true,
+
+    sendResetPassword: async ({ user, url, token }) => {
+      await getMailer().send({
+        to: user.email,
+        subject: 'Reset your AuraPMS password',
+        body:
+          `Someone asked to reset the password for this account.\n\n${url}\n\n` +
+          'This link works once and expires in an hour. If it was not you, ignore this email.',
+        meta: { token, url },
+      });
+    },
   },
 
   session: {

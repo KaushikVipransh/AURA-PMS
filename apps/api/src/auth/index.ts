@@ -22,6 +22,7 @@ import { prisma } from '@aura/db';
 import type { NextFunction, Request, Response } from 'express';
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node';
 
+import { scopedPrisma, type ScopedPrisma } from '../db/scoped.js';
 import { auth } from './config.js';
 
 /** A request that has passed {@link requireAuth}. */
@@ -38,6 +39,14 @@ export type AuthenticatedRequest = Request & { actor: Actor };
 declare module 'express-serve-static-core' {
   interface Request {
     actor?: Actor;
+    /**
+     * A database client scoped to the actor's organization.
+     *
+     * Installed by `requireAuth`, so obtaining a client and having an actor
+     * are the same event. A route cannot reach the unscoped singleton by
+     * accident, because the only handle it is given is already narrowed.
+     */
+    db?: ScopedPrisma;
   }
 }
 
@@ -99,6 +108,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       }
 
       req.actor = actor;
+      // Scope and identity are installed together: there is no window in which
+      // a handler has one without the other.
+      req.db = scopedPrisma(actor.orgId);
       next();
     } catch (error) {
       next(error);
@@ -177,6 +189,37 @@ export async function createSession(
 /** Resolve an actor from a raw cookie header. */
 export async function getActorByCookie(cookie: string): Promise<Actor | null> {
   return getActor({ headers: { cookie } } as Request);
+}
+
+/**
+ * Begin a password reset.
+ *
+ * Resolves whether or not the address exists. The caller must answer
+ * identically either way — a "no such account" here is an oracle for who works
+ * at this company (PRD US-103).
+ */
+export async function requestPasswordReset(email: string, redirectTo: string): Promise<void> {
+  try {
+    await auth.api.requestPasswordReset({ body: { email, redirectTo } });
+  } catch {
+    // Swallowed on purpose. Anything the library wants to say about an unknown
+    // address is exactly what must not reach the client.
+  }
+}
+
+/**
+ * Complete a password reset.
+ *
+ * Returns whether the token was accepted rather than throwing, because "that
+ * link has expired" is an ordinary outcome of a flow with a one-hour window.
+ */
+export async function resetPassword(token: string, newPassword: string): Promise<boolean> {
+  try {
+    await auth.api.resetPassword({ body: { token, newPassword } });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Revoke a session identified by a raw cookie header. */

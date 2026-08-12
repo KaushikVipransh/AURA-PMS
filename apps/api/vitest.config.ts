@@ -20,6 +20,8 @@ export default defineConfig({
         // claims mean anything -- see the note below.
         'src/auth/**',
         'src/routes/**',
+        'src/db/**',
+        'src/security.ts',
         'src/app.ts',
         'src/server.ts',
       ],

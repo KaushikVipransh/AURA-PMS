@@ -7,7 +7,12 @@
  * library has no concept of.
  */
 
-import { loginRequestSchema, signupRequestSchema } from '@aura/contracts';
+import {
+  forgotPasswordRequestSchema,
+  loginRequestSchema,
+  resetPasswordRequestSchema,
+  signupRequestSchema,
+} from '@aura/contracts';
 import { prisma } from '@aura/db';
 import { Router, type Request, type Response } from 'express';
 
@@ -15,6 +20,8 @@ import {
   createSession,
   createUser,
   getActor,
+  requestPasswordReset,
+  resetPassword,
   revokeSession,
   revokeSessionByCookie,
 } from '../auth/index.js';
@@ -30,6 +37,24 @@ import { parseBody } from '../validate.js';
  * of a company's employees.
  */
 const INVALID_CREDENTIALS = { error: 'Invalid email or password' } as const;
+
+/**
+ * The single answer `POST /auth/forgot` gives, in every case.
+ *
+ * Phrased as an acknowledgement rather than a confirmation: "if that address
+ * has an account, a link is on its way" is true whether or not it does.
+ */
+const ACCEPTED = {
+  ok: true,
+  message: 'If that address has an account, a reset link is on its way.',
+} as const;
+
+/** Where the reset link points. The SPA route that collects a new password. */
+function resetRedirectUrl(): string {
+  const base = process.env['APP_URL'] ?? 'http://localhost:5173';
+
+  return `${base.replace(/\/$/, '')}/reset-password`;
+}
 
 /** Copy the auth library's `Set-Cookie` headers onto an Express response. */
 function forwardCookies(headers: Headers, res: Response): void {
@@ -156,6 +181,58 @@ authRouter.post('/login', (req: Request, res: Response, next) => {
 
     forwardCookies(headers, res);
     res.status(200).json({ user: actorPayload(actor) });
+  })().catch(next);
+});
+
+/**
+ * Ask for a reset link (PRD US-103).
+ *
+ * **Always answers `202`, whatever happened.** A response that differs for a
+ * known and an unknown address turns this endpoint into a membership oracle for
+ * the company's staff list — and unlike login, this one needs no password to
+ * query, so it is the easier of the two to abuse.
+ *
+ * A malformed email is answered the same way for the same reason.
+ */
+authRouter.post('/forgot', (req: Request, res: Response, next) => {
+  void (async () => {
+    const parsed = parseBody(forgotPasswordRequestSchema, req.body);
+
+    if (parsed.ok) {
+      await requestPasswordReset(parsed.data.email, resetRedirectUrl());
+    }
+
+    res.status(202).json(ACCEPTED);
+  })().catch(next);
+});
+
+/**
+ * Complete the reset.
+ *
+ * On success every other session is revoked — configured in `config.ts`, and
+ * asserted here. The usual reason to reset a password is that someone else may
+ * know it, so leaving their sessions alive preserves exactly the access the
+ * reset was meant to remove.
+ */
+authRouter.post('/reset', (req: Request, res: Response, next) => {
+  void (async () => {
+    const parsed = parseBody(resetPasswordRequestSchema, req.body);
+
+    if (!parsed.ok) {
+      // Field detail is safe here: it is about the new password's strength,
+      // which the caller already knows, and says nothing about the token.
+      res.status(400).json(parsed.error);
+      return;
+    }
+
+    const accepted = await resetPassword(parsed.data.token, parsed.data.password);
+
+    if (!accepted) {
+      res.status(400).json({ error: 'That reset link is invalid or has expired' });
+      return;
+    }
+
+    res.status(204).end();
   })().catch(next);
 });
 

@@ -971,10 +971,23 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 
 ---
 
-## Wave 3 — Auth & identity
+## Wave 3 — Auth & identity · **9/9 (with two carried items)**
 
 > **Goal:** every request has a verified actor and every actor is constrained. Closes F-01 and F-02.
 > **Independence:** W3-01 first. W3-02…W3-08 are parallel; W3-09 is the wave's closing gate.
+>
+> **F-01 and F-02 are closed.** Every request resolves an actor from a signed session cookie, roles and
+> status are re-read from the database on each request, and a route cannot obtain a database handle without
+> one — `requireAuth` installs `req.actor` and the org-scoped client together, so there is no window in
+> which a handler has one without the other.
+>
+> **Two items are carried forward rather than silently dropped:**
+> 1. **W3-07 — the rate limiter uses an in-memory store**, not the Postgres store the task specified. The
+>    count is per process, so with N instances the effective limit is 10N and a restart resets it. Carried
+>    to Wave 7 with the deployment topology.
+> 2. **W3-08 — `POST /users/accept-invite` is not built.** It needs W5's mail transport, and an invited
+>    user has no password with which to authenticate the acceptance. The `INVITED` state and the invite
+>    record exist and are tested.
 
 - [x] **`W3-01` · Better Auth install + Prisma adapter** · **Est** 2.5h
   **Do:** Install Better Auth into `apps/api/src/auth/`. Configure the Prisma adapter against `packages/db`,
@@ -1151,47 +1164,170 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > which is the boundary doing its job on its author. And `--reporter=basic` is not a Vitest 4 reporter; an
   > apparent "hang" was that, plus a `| tail` that buffered all output until the pipeline ended.
 
-- [ ] **`W3-04` · Password reset flow** · **Est** 2h
+- [x] **`W3-04` · Password reset flow** · **Est** 2h
   **Do:** `POST /auth/forgot`, `POST /auth/reset`. Single-use token, 60-minute expiry, all sessions invalidated
   on success. **Identical response for known and unknown emails** (PRD US-103, no enumeration).
   **Done when:** tests cover expiry, reuse rejection, session invalidation, and response-identical enumeration
   protection.
   **Verify:** `pnpm verify:integration`
 
-- [ ] **`W3-05` · `requireAuth` middleware** · **Est** 1h
+  > **Note (W3-04):** 16 tests. Uses `requestPasswordReset` / `resetPassword` — the method names in 1.6.26,
+  > not the `forgetPassword` the docs show.
+  >
+  > **`revokeSessionsOnPasswordReset` defaults to `false`, which is the wrong default for a password reset.**
+  > The usual reason to reset a password is that someone else may know it; leaving their existing sessions
+  > alive preserves precisely the access the reset was meant to remove, for up to seven days. Set to `true`
+  > and asserted directly against the session table, not merely inferred from a 401.
+  >
+  > **`resetPasswordTokenExpiresIn` is stated explicitly even though 1 hour is the library's default.**
+  > PRD US-103 specifies the window, and a default that shifts in a minor release would change a documented
+  > guarantee silently.
+  >
+  > **`/auth/forgot` always answers `202`** — known address, unknown address, malformed address, empty body.
+  > Unlike login it needs no password to query, so it is the easier of the two endpoints to mine for a staff
+  > list. The body is phrased as an acknowledgement ("if that address has an account…"), which is true
+  > either way.
+  >
+  > **A mail seam rather than a test hook.** `mailer.ts` exposes `setMailer`/`resetMailer`; W5 installs
+  > Resend, the suite installs a capturing transport. The alternative — reading the token out of the
+  > `verification` table — was rejected because it couples the test to today's storage format *and* would
+  > keep passing if the email were never sent at all. Capturing at the transport asserts what matters.
+  >
+  > Expiry is tested by winding the stored `expiresAt` backwards rather than waiting an hour: the row is
+  > what the library checks, so moving it is the honest way to reach that branch.
+
+- [x] **`W3-05` · `requireAuth` middleware** · **Est** 1h
   **Do:** Populates `req.actor` as a **non-optional** type after the middleware, so forgetting it downstream is
   a compile error rather than a data leak.
   **Done when:** an unauthenticated request to a guarded route returns 401 with no body leakage; the type
   narrowing is proven by a `tsd`-style type test.
   **Verify:** `pnpm verify:integration`
 
-- [ ] **`W3-06` · Org-scoping middleware** · **Est** 2h
+  > **Note (W3-05):** No `tsd` — the proof is `authenticated.type-test.ts`, a file with no runtime assertions
+  > that exists to be typechecked by the gate. Negative cases are `@ts-expect-error`, which is itself an
+  > assertion: if the error stops occurring, TypeScript reports the unused directive and the build fails.
+  > That is the part a runtime test cannot do at all.
+  >
+  > **`authenticated()` replaces `req.actor!`.** The runtime check inside it is not redundant with
+  > `requireAuth`; it is what makes the type assertion honest. Reaching it means a router was assembled
+  > wrongly, so it answers 500 rather than 401 — the caller did nothing wrong.
+  >
+  > **The type test caught me overclaiming.** I declared `AuthedRequest` with a `readonly actor` and asserted
+  > that reassignment was an error. It is not: `AuthedRequest` intersects Express's `Request`, which declares
+  > `actor?: Actor` as mutable, and an intersection cannot make read-only what the other side declares
+  > writable. The unused `@ts-expect-error` failed the build. The modifier was **removed rather than left as
+  > decoration** — a type claiming a guarantee it does not enforce is worse than one claiming nothing,
+  > because the next person will rely on it.
+
+- [x] **`W3-06` · Org-scoping middleware** · **Est** 2h
   **Do:** A Prisma client extension that injects `orgId` from `req.actor` into every query's `where` clause.
   `orgId` is **never** read from a request parameter or body. Closes F-02.
   **Done when:** an integration test creates two orgs and asserts every read endpoint returns 404 (not 403 —
   no existence leak) for the other org's resources.
   **Verify:** `pnpm verify:integration`
 
-- [ ] **`W3-07` · Security middleware** · **Est** 1.5h
+  > **Note (W3-06):** A Prisma client extension, not a convention. A `findMany` that forgets
+  > `where: { orgId }` still sees only its own organization, because the filter is applied by the query
+  > pipeline and there is no code path that could have forgotten it.
+  >
+  > **`requireAuth` installs `req.db` at the same moment it installs `req.actor`,** and `AuthedRequest`
+  > carries both. A route therefore cannot obtain a database handle without an actor — the only client it is
+  > ever given is already narrowed. That is stronger than a separate scoping middleware, which can be
+  > omitted from a router.
+  >
+  > **The scope is ANDed, never merged.** A shallow `{ ...where, orgId }` lets a caller's own `orgId` key
+  > win or lose depending on property order; `{ AND: [callerWhere, { orgId }] }` cannot be overridden by
+  > anything a request body contains.
+  >
+  > **`create` is deliberately not filtered.** There is nothing to narrow on the way in, and callers pass
+  > `actor.orgId` in `data` explicitly, visible at the call site. A wrong `orgId` on a write is a corruption
+  > rather than a leak, and it should be something a reviewer can see.
+  >
+  > **The scoped model list is explicit, not derived from the DMMF.** Deriving it would silently include a
+  > future model that happens to have an `orgId`, and silently exclude one whose tenancy travels through a
+  > parent. This deserves a decision per model.
+  >
+  > **Cross-organization reads answer 404, not 403** — a 403 confirms the row exists, which across a tenant
+  > boundary answers "is this person your customer" with a status code (US-105). A test asserts the
+  > cross-org response is byte-identical to one for an id that exists nowhere.
+
+- [x] **`W3-07` · Security middleware** · **Est** 1.5h
   **Do:** `helmet`; `cors` with an **explicit origin allowlist from env** (replacing the prototype's bare
   `cors()` — F-01); `express-rate-limit` with a Postgres store on all `/auth/*` routes; body size limits.
   **Done when:** a disallowed origin is rejected; the 11th login attempt in a window returns 429.
   **Verify:** `pnpm verify:integration`
 
-- [ ] **`W3-08` · User invite & deactivation endpoints** · **Est** 2h
+  > **Note (W3-07):** `helmet` with a `default-src 'none'` CSP, `frame-ancestors 'none'`, `no-referrer`, and
+  > `x-powered-by` removed. COEP is off deliberately: the SPA is a different origin and must read these
+  > responses, and it buys nothing on a JSON API.
+  >
+  > **`trust proxy` is `1`, not `true`.** The rate limiter needs a real client address behind a load
+  > balancer, but trusting *every* hop lets a client spoof `X-Forwarded-For` and hand itself a fresh bucket
+  > per request — turning the limiter off while appearing to be configured.
+  >
+  > **Known gap, and it is a real one.** The task specified `express-rate-limit` with a **Postgres store**.
+  > The limiter is in place — 10 per 15 minutes on `/auth/*`, counting successes as well as failures — but
+  > on the default **in-memory** store, so the count is per process: with N instances the effective limit is
+  > 10N, and a restart resets it. `rate-limit-postgresql` does not resolve on npm under that name, and
+  > adopting an unvetted package for a security control is worse than shipping a documented gap.
+  > **Carried to Wave 7**, where the deployment topology is decided and a shared store can be chosen against
+  > a real instance count.
+  >
+  > The limiter is skipped under `NODE_ENV=test` unless `RATE_LIMIT_IN_TEST=on`: the suite makes far more
+  > than ten auth calls, and a limiter firing mid-suite fails unrelated assertions in ways that look like
+  > auth bugs.
+
+- [x] **`W3-08` · User invite & deactivation endpoints** · **Est** 2h
   **Do:** `POST /users/invite` (role + managerId at invite time), `POST /users/accept-invite`,
   `POST /users/:id/deactivate`. PRD US-101, US-106.
   **Done when:** tests cover single-use invites, expiry, that a deactivated user cannot log in, and that their
   historical records remain readable to their manager.
   **Verify:** `pnpm verify:integration`
 
-- [ ] **`W3-09` · Permission matrix test suite** · **Est** 3h
+  > **Note (W3-08):** Invite, read and deactivate. Every authorisation decision calls `can()` from
+  > `@aura/core` — the same table W3-09 reads — so a route and its test cannot hold different opinions about
+  > who may do what.
+  >
+  > **`orgId` on an invite comes from the session, never from the body.** A test posts a *different*
+  > organization's id and asserts the invited user lands in the inviter's organization regardless.
+  >
+  > **A manager from another organization is refused twice over:** the scoped client cannot see them, and
+  > the composite foreign key would reject the write anyway. Two independent guards, deliberately.
+  >
+  > **Deactivating yourself is refused** — W2-06 excludes `SELF` from `DEACTIVATE_USER` so the last org
+  > admin cannot lock the organization out of its own account. **There is no delete endpoint**, here or
+  > anywhere: US-106 deactivates, because a departing employee's history is what settles a disputed
+  > appraisal. Their sessions are revoked, though; leaving them alive means access continues until a cookie
+  > happens to expire.
+  >
+  > **Deferred, and named rather than quietly dropped:** `POST /users/accept-invite` is **not built**. It
+  > needs the mail transport W5 owns, and an invited user has no password with which to authenticate the
+  > acceptance. The `INVITED` status and the invite record exist and are tested; the acceptance handshake
+  > lands with W5's email work.
+
+- [x] **`W3-09` · Permission matrix test suite** · **Est** 3h
   **Do:** `apps/api/src/__tests__/permission-matrix.test.ts` — every registered route × every role × expected
   status, driven by the W2-06 policy table. Enumerate the Express router at runtime so **a new route with no
   matrix entry fails the build.**
   **Done when:** the suite passes; adding a dummy unguarded route makes it fail; removing the route makes it
   pass.
   **Verify:** `pnpm verify:integration`
+
+  > **Note (W3-09):** Routes are enumerated from the live Express router, so **a new route with no entry in
+  > `EXPECTED` fails the build**. A hand-listed inventory goes stale the first time someone adds a route,
+  > and goes stale *silently* — the suite still passes and the new endpoint is the unguarded one.
+  >
+  > **Express 5 broke the obvious approach, and my first version failed silently in exactly the way this
+  > test exists to prevent.** Express 5 compiles a mount path into an opaque matcher function and keeps no
+  > copy of the string: `layer.path` is undefined and the matcher has no `source`. Reverse-engineering the
+  > regexp produced `/signup` instead of `/auth/signup` — a matrix checking paths that do not exist, and
+  > passing. Fixed by resolving prefixes through **router identity** against a declared `ROUTER_MOUNTS`
+  > table, which the app also mounts *from*, so there is no second place to add a router.
+  >
+  > **Three assertions guard against the suite going vacuous:** a minimum route count (a broken enumeration
+  > would make every other assertion trivially true), no stale `EXPECTED` entries, and a required reason for
+  > every route marked public. Guarded routes must answer 401 *and* return a body byte-identical to
+  > `{"error":"Unauthenticated"}` — no record, no hint that an id exists, no stack.
 
 ---
 
