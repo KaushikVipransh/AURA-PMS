@@ -547,10 +547,19 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 
 ---
 
-## Wave 2 — Pure domain logic
+## Wave 2 — Pure domain logic · **10/10 ✅**
 
 > **Goal:** every business rule exists once, as a pure function, exhaustively tested.
 > **Independence:** total. No task here touches the database, HTTP, or another task's files. Fully parallel.
+>
+> **Outcome:** 595 tests in `@aura/core` at **100% coverage on every module**, 80 in `@aura/contracts`, 17
+> enum-drift tests in `@aura/db`, 9 in `apps/api`. `pnpm verify` 28/28, `pnpm verify:integration` 54/54.
+>
+> The independence claim held in the sense that matters — no shared state, no ordering requirement — but
+> "no task touches another task's files" turned out approximate, as it already had in Wave 1. Three shared
+> modules were extracted rather than duplicated: `numeric.ts` (W2-02), `assertValidDate` and `sameCivilDay`
+> from `cycle.ts`/`deadlines.ts` (W2-04, W2-05). Each is recorded in its task's note. Duplicating a number
+> parser across two files is precisely the failure this rebuild exists to remove.
 
 - [x] **`W2-01` · Scoring engine** · **Est** 3h
   **Do:** `packages/core/src/scoring.ts` — `scoreGoal(goal): number` covering every `uom` × `direction`
