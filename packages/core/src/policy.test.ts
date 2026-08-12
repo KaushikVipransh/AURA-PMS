@@ -21,8 +21,15 @@ const OTHER_ORG = 'org-2';
 const actorFor = (role: Role, isActive = true): Actor => ({
   userId: 'actor',
   orgId: ORG,
-  role,
+  roles: [role],
   isActive,
+});
+
+const actorWith = (...roles: readonly Role[]): Actor => ({
+  userId: 'actor',
+  orgId: ORG,
+  roles,
+  isActive: true,
 });
 
 /** A resource standing in each possible relation to `actor`. */
@@ -345,6 +352,64 @@ describe('the table itself', () => {
 
   it('has an expectation written for every action, and no stale ones', () => {
     expect(Object.keys(EXPECTED).sort()).toEqual([...POLICY_ACTIONS].sort());
+  });
+});
+
+describe('a user holds several roles at once', () => {
+  it('lets an HR admin submit their own goal sheet, which HR_ADMIN alone permits anyway', () => {
+    expect(can(actorWith('HR_ADMIN', 'EMPLOYEE'), 'SUBMIT_GOAL_SHEET', RESOURCES.SELF)).toBe(true);
+  });
+
+  it('grants the union of what the held roles permit', () => {
+    // MANAGER cannot invite; HR_ADMIN can. Holding both, they can.
+    expect(can(actorFor('MANAGER'), 'INVITE_USER', RESOURCES.SAME_ORG)).toBe(false);
+    expect(can(actorWith('MANAGER', 'HR_ADMIN'), 'INVITE_USER', RESOURCES.SAME_ORG)).toBe(true);
+  });
+
+  it('unions the relationships too, not just the actions', () => {
+    // EMPLOYEE reaches only SELF; MANAGER reaches reports. Both together reach
+    // both, which is the union and not the second list replacing the first.
+    const both = actorWith('EMPLOYEE', 'MANAGER');
+
+    expect(can(both, 'VIEW_GOAL_SHEET', RESOURCES.SELF)).toBe(true);
+    expect(can(both, 'VIEW_GOAL_SHEET', RESOURCES.DIRECT_REPORT)).toBe(true);
+    expect(can(both, 'VIEW_GOAL_SHEET', RESOURCES.SAME_ORG)).toBe(false);
+  });
+
+  it('still refuses what no held role permits', () => {
+    expect(can(actorWith('EMPLOYEE', 'MANAGER'), 'VIEW_AUDIT_TRAIL', RESOURCES.SAME_ORG)).toBe(
+      false,
+    );
+  });
+
+  it('never lets a second role unlock self-dealing', () => {
+    // Holding every role in the system still does not let you approve your own
+    // sheet or rate yourself -- the exclusion is on the relationship.
+    const everything = actorWith(...ROLES);
+
+    expect(can(everything, 'APPROVE_GOAL_SHEET', RESOURCES.SELF)).toBe(false);
+    expect(can(everything, 'RATE_REPORT', RESOURCES.SELF)).toBe(false);
+    expect(can(everything, 'DEACTIVATE_USER', RESOURCES.SELF)).toBe(false);
+  });
+
+  it('refuses everything to an actor holding no roles at all', () => {
+    // A user mid-invite: the row exists, the roles array is empty.
+    const pending = actorWith();
+
+    for (const action of POLICY_ACTIONS) {
+      expect(can(pending, action, RESOURCES.SELF)).toBe(false);
+    }
+    expect(check(pending, 'VIEW_GOAL_SHEET', RESOURCES.SELF).reason).toBe('ROLE_NOT_PERMITTED');
+  });
+
+  it('refuses a cross-org request however many roles are held', () => {
+    expect(can(actorWith(...ROLES), 'VIEW_USER', RESOURCES.OTHER_ORG)).toBe(false);
+  });
+
+  it('refuses a deactivated user however many roles are held', () => {
+    const deactivated: Actor = { ...actorWith(...ROLES), isActive: false };
+
+    expect(can(deactivated, 'VIEW_GOAL_SHEET', RESOURCES.SELF)).toBe(false);
   });
 });
 

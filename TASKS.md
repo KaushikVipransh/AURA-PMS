@@ -976,7 +976,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 > **Goal:** every request has a verified actor and every actor is constrained. Closes F-01 and F-02.
 > **Independence:** W3-01 first. W3-02…W3-08 are parallel; W3-09 is the wave's closing gate.
 
-- [ ] **`W3-01` · Better Auth install + Prisma adapter** · **Est** 2.5h
+- [x] **`W3-01` · Better Auth install + Prisma adapter** · **Est** 2.5h
   **Do:** Install Better Auth into `apps/api/src/auth/`. Configure the Prisma adapter against `packages/db`,
   email/password provider, session and cookie config. Generate and apply its schema migration.
   **First confirm the current version and its organization/access-control plugin APIs against the official
@@ -984,6 +984,66 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   our own `Role`/`Membership` tables and note the deviation here.
   **Done when:** a user can be created and a session issued in an integration test.
   **Verify:** `pnpm verify && pnpm verify:integration`
+
+  > **Note (W3-01):** Better Auth **1.6.26** (1.6.27 published mid-task; 1.7.0 is still RC). It declares peer
+  > support for `prisma ^7` and `@prisma/client ^7`, which matches our 7.9.1. 12 auth integration tests;
+  > `pnpm verify` 28/28, `pnpm verify:integration` 67 (55 db + 12 api).
+  >
+  > **The organization plugin was evaluated and rejected — the fallback this task anticipated.** It is a
+  > good plugin for a different shape of product, and four things make it wrong here:
+  >
+  > 1. It models a role as a column on a `member` join table, so permissions come from membership. W2-06's
+  >    policy engine — 680 asserted cells — reads roles from the actor. Adopting it means rewriting Wave 2.
+  > 2. It makes `User` organization-less, with the link in `member`. Our tenancy is a *database constraint*:
+  >    `(managerId, orgId)` references `(id, orgId)`, so Postgres rejects a cross-org manager. That
+  >    composite key needs `orgId` on the user row — removing it turns F-02 back into a convention.
+  > 3. Its `team`/`teamMember` tables duplicate the `Team` model W1-04 already built.
+  > 4. Its central feature is one user across many organizations. The PRD has no such case.
+  >
+  > So Better Auth owns credentials and sessions and does **not** own identity. Core only: `Session`,
+  > `Account`, `Verification` added in `auth.prisma`; `emailVerified`/`image` added to `User`.
+  >
+  > **Two schema decisions from Wave 1 were deliberately reversed, and both are recorded where they live:**
+  >
+  > - **`email` is now globally unique**, not `@@unique([orgId, email])`. Better Auth resolves a login by
+  >   email alone and a login form has no second field to disambiguate with, so a duplicate address makes
+  >   "who is signing in" genuinely unanswerable. One person belongs to one organization (PRD E1), so the
+  >   wider constraint costs nothing real. W1-03's integration test was **rewritten, not deleted** — the case
+  >   still matters, the expected answer changed — and a new test asserts the composite-FK tenancy guarantee
+  >   is untouched by the widening.
+  > - **`Actor.role` became `Actor.roles`** in `@aura/core`. This is a defect W3-01 surfaced rather than
+  >   created: `User.roles` has been a `Role[]` since W1-03 (an HR admin is also an employee with their own
+  >   goal sheet), while W2-06 typed a single role. An action is permitted if **any** held role permits it —
+  >   a union, not a maximum, so it does not depend on the role ladder continuing to hold. All 680 cells
+  >   still pass; 8 tests added, including that holding every role still cannot approve your own sheet.
+  >
+  > **`orgId` is the only `additionalField`, and `roles`/`status` are deliberately absent.** A client able to
+  > name its own roles at sign-up would make the whole of W2-06 decorative. They take their Prisma defaults
+  > and are set by our handlers in W3-03/W3-08.
+  >
+  > **`prisma migrate dev` cannot run non-interactively** when it has a data-loss warning — here, the new
+  > unique index on `users.email`. Neither `migrate dev` nor `--create-only` will proceed. The migration was
+  > generated with `prisma migrate diff --from-config-datasource --to-schema`, which is read-only and
+  > non-interactive, then applied with `migrate deploy`. Same approach as W1-05's hand-appended partial index.
+  >
+  > **Gotchas hit, all previously documented and all hit anyway:**
+  > - `migrate deploy` does **not** regenerate the client. `Unknown argument 'emailVerified'` is what a stale
+  >   generated client looks like — run `pnpm --filter @aura/db build`.
+  > - `apps/api`'s unit config matched `*.integration.test.ts`, exactly as `packages/db`'s did in W1-12. Now
+  >   excluded. `src/auth/**` is excluded from *coverage* but not from testing: it is covered by the
+  >   integration suite, and measuring it in the unit run would report 0% for well-tested code and invite
+  >   someone to "fix" that with a mock.
+  > - `@aura/db`'s export map pointed `./testing` at `./src/testing.ts`, which does not exist (the file is
+  >   `src/testing/index.ts`). Latent since W1-12 because nothing imported it across a package boundary.
+  >   Fixed, and `./testing/global-setup` added so `apps/api` reuses the same container and migrations.
+  >
+  > **The integration suite supplies its own `BETTER_AUTH_SECRET`** from the vitest config rather than
+  > reading `.env`. CI has no `.env`, and a test that passes only on one machine is worse than no test. The
+  > local `.env` secret was empty and has been generated (gitignored, never committed).
+  >
+  > `config.ts` throws at startup if the secret is missing or under 32 characters. A weak secret breaks
+  > nothing visibly — sessions still issue, and they are simply forgeable — which is the worst failure mode
+  > a config error can have.
 
 - [ ] **`W3-02` · Internal auth interface** · **Est** 1.5h
   **Do:** `apps/api/src/auth/index.ts` exporting only `getActor(req)`, `requireAuth`, `requireRole`,

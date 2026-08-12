@@ -29,7 +29,7 @@ model Goal {
   actualAchievement String?
   status            GoalStatus @default(NOT_STARTED)
 
-  sharedGoalId String?
+  sharedGoalId   String?
   /// Only the primary owner may edit actuals on a cascaded goal; every other
   /// instance is read-only and updates propagate from the owner (PRD US-403).
   isPrimaryOwner Boolean @default(false)

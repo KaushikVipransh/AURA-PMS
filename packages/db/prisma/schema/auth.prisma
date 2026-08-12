@@ -1,0 +1,97 @@
+/// Better Auth's core tables.
+///
+/// Deliberately only the *core* four. The organization plugin was evaluated and
+/// rejected in W3-01 — see TASKS.md for the reasoning — because it models a
+/// role as a property of membership in a join table, while this schema puts
+/// `orgId` and `roles` on the user row itself and enforces tenancy with
+/// composite foreign keys. Adopting the plugin would have dissolved the
+/// constraint that makes PLAN.md F-02 structurally impossible rather than
+/// merely tested.
+///
+/// So Better Auth owns credentials and sessions. It does not own identity:
+/// `User` remains this schema's model, and `Session` simply points at it.
+///
+/// Field names here match Better Auth's expectations exactly. They are not
+/// ours to rename — the adapter reads them by name, and a mapping layer would
+/// be one more thing to keep in step for no benefit.
+
+/// A logged-in session. Better Auth issues, renews and revokes these.
+model Session {
+  id     String @id @default(cuid())
+  userId String
+
+  /// The session identifier carried in the cookie. Globally unique.
+  token     String   @unique
+  expiresAt DateTime
+
+  /// Recorded for the audit trail (PRD US-1101) and for showing someone their
+  /// active sessions.
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Cascade, not restrict: a deleted user's sessions have nothing to protect.
+  /// Note that `User` itself is never deleted — US-106 deactivates — so this
+  /// path exists for GDPR erasure rather than for ordinary departures.
+  user User @relation("UserSessions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// A credential. For email/password there is one row per user holding the
+/// password hash; OAuth providers would add one row each.
+model Account {
+  id     String @id @default(cuid())
+  userId String
+
+  /// The provider's identifier for this account. For email/password Better
+  /// Auth sets this to the user's id.
+  accountId  String
+  providerId String
+
+  /// The password hash, for the credential provider only.
+  ///
+  /// Never enters an audit payload: `REDACTED_FIELDS` in W2-09 matches the
+  /// `password` substring, so a diff touching this column stores the fact of
+  /// the change and not the material.
+  password String?
+
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation("UserAccounts", fields: [userId], references: [id], onDelete: Cascade)
+
+  /// One account per provider per user.
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// Short-lived tokens: email verification, and the password reset flow in
+/// W3-04. Rows are consumed on use and swept once expired.
+model Verification {
+  id String @id @default(cuid())
+
+  /// What is being verified — an email address, or a reset request.
+  identifier String
+  value      String
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verifications")
+}

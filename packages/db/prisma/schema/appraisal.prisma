@@ -34,7 +34,7 @@ model Appraisal {
   acknowledgedAt         DateTime?
   acknowledgementComment String?
   /// Set when the employee formally disagrees; surfaces to HR.
-  disputedAt DateTime?
+  disputedAt             DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

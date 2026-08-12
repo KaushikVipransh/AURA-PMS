@@ -14,8 +14,21 @@ enum UserStatus {
 model User {
   id    String @id @default(cuid())
   orgId String
-  email String
+
+  /// Globally unique, not unique per organization.
+  ///
+  /// W1-03 keyed this `@@unique([orgId, email])`, which permitted the same
+  /// address in two organizations. W3-01 changed it: Better Auth resolves a
+  /// login by email alone, so a duplicate address makes "who is signing in"
+  /// ambiguous with no field left to disambiguate it. One person belongs to one
+  /// organization (PRD E1), so the wider constraint costs nothing real and
+  /// removes a genuinely unanswerable case.
+  email String @unique
   name  String
+
+  /// Better Auth core fields. Owned by the auth layer, not by the domain.
+  emailVerified Boolean @default(false)
+  image         String?
 
   /// Multiple roles per user — an HR admin is usually also an employee with
   /// their own goal sheet. Checked server-side on every request; the prototype
@@ -54,8 +67,9 @@ model User {
   escalations          Escalation[]    @relation("EscalationSubject")
   resolvedEscalations  Escalation[]    @relation("EscalationResolver")
   notifications        Notification[]  @relation("NotificationRecipient")
+  sessions             Session[]       @relation("UserSessions")
+  accounts             Account[]       @relation("UserAccounts")
 
-  @@unique([orgId, email])
   /// Required target for the composite self-relation above.
   @@unique([id, orgId])
   @@index([orgId, managerId])

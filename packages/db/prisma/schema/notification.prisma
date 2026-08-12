@@ -33,8 +33,8 @@ model Notification {
   /// as such in the UI (PRD US-1202).
   mandatory Boolean @default(false)
 
-  sentAt       DateTime?
-  readAt       DateTime?
+  sentAt        DateTime?
+  readAt        DateTime?
   failureReason String?
 
   createdAt DateTime @default(now())

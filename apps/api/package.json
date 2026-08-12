@@ -11,13 +11,15 @@
     "build": "echo no-op",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "license": "ISC",
   "dependencies": {
     "@aura/contracts": "workspace:*",
     "@aura/core": "workspace:*",
     "@aura/db": "workspace:*",
+    "better-auth": "^1.6.26",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

@@ -47,7 +47,20 @@ export type Relationship = (typeof RELATIONSHIPS)[number];
 export type Actor = {
   readonly userId: string;
   readonly orgId: string;
-  readonly role: Role;
+  /**
+   * Every role the user holds, because `User.roles` is an array.
+   *
+   * An HR admin is almost always also an employee with a goal sheet of their
+   * own, and a manager who runs a team still has one. A single role would force
+   * that person to be one thing, and the natural workaround — picking the
+   * "highest" — is how someone ends up unable to submit their own goals.
+   *
+   * An action is permitted if **any** held role permits it. That is a union
+   * rather than a maximum on purpose: it does not depend on the role ladder
+   * continuing to hold, which is an invariant the table happens to satisfy
+   * today and is not required to satisfy forever.
+   */
+  readonly roles: readonly Role[];
   /**
    * A departing employee keeps their history but loses their access
    * (PRD US-106). Deactivation is checked before anything else.
@@ -393,12 +406,17 @@ export function check(actor: Actor, action: PolicyAction, resource: Resource): P
     return { allowed: false, relationship, reason: 'CROSS_ORG' };
   }
 
-  const permitted = POLICY[action][actor.role];
+  const entries = actor.roles
+    .map((role) => POLICY[action][role])
+    .filter((permitted): permitted is readonly Relationship[] => permitted !== undefined);
 
-  if (permitted === undefined) {
+  // No held role appears in this action's table at all — including the case of
+  // an actor holding no roles, which is a user mid-invite.
+  if (entries.length === 0) {
     return { allowed: false, relationship, reason: 'ROLE_NOT_PERMITTED' };
   }
-  if (!permitted.includes(relationship)) {
+
+  if (!entries.some((permitted) => permitted.includes(relationship))) {
     return { allowed: false, relationship, reason: 'RELATIONSHIP_NOT_PERMITTED' };
   }
 

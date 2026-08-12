@@ -100,7 +100,21 @@ describe('User [W1-03]', () => {
     });
   });
 
-  it('scopes email uniqueness to the organization', async () => {
+  /**
+   * Reversed in W3-01, deliberately.
+   *
+   * W1-03 keyed this `@@unique([orgId, email])`, on the reasoning that the same
+   * address in two tenants is two different people. That reasoning is sound in
+   * the abstract and wrong for this product. Better Auth resolves a login by
+   * email alone, and there is no second field on a login form to disambiguate
+   * with — so a duplicate address makes "who is signing in" genuinely
+   * unanswerable rather than merely awkward.
+   *
+   * One person belongs to one organization (PRD E1), so the wider constraint
+   * costs nothing real. The test is rewritten rather than deleted: the case it
+   * covers still matters, the expected answer changed.
+   */
+  it('makes email globally unique, so a login resolves to exactly one person', async () => {
     await withTestDb(async (tx) => {
       const orgA = await makeOrg(tx, 'alpha');
       const orgB = await makeOrg(tx, 'beta');
@@ -108,13 +122,39 @@ describe('User [W1-03]', () => {
 
       await tx.user.create({ data: { orgId: orgA.id, email, name: 'A' } });
 
-      // Same address in a different tenant is a different person.
+      // Rejected across organizations...
       await expect(
         tx.user.create({ data: { orgId: orgB.id, email, name: 'B' } }),
-      ).resolves.toBeDefined();
+      ).rejects.toThrow();
 
+      // ...and within one.
       await expect(
         tx.user.create({ data: { orgId: orgA.id, email, name: 'Dup' } }),
+      ).rejects.toThrow();
+    });
+  });
+
+  it('still isolates the reporting line to one organization', async () => {
+    // Widening the email constraint did not weaken tenancy: the composite
+    // foreign key on (managerId, orgId) is what enforces that, and it is
+    // untouched.
+    await withTestDb(async (tx) => {
+      const orgA = await makeOrg(tx, 'alpha');
+      const orgB = await makeOrg(tx, 'beta');
+
+      const bossA = await tx.user.create({
+        data: { orgId: orgA.id, email: uniq('boss') + '@x.com', name: 'Boss A' },
+      });
+
+      await expect(
+        tx.user.create({
+          data: {
+            orgId: orgB.id,
+            email: uniq('report') + '@x.com',
+            name: 'Report B',
+            managerId: bossA.id,
+          },
+        }),
       ).rejects.toThrow();
     });
   });

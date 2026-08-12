@@ -32,8 +32,8 @@ model Escalation {
   cycleId       String
   subjectUserId String
 
-  rule  EscalationRule
-  tier  EscalationTier   @default(EMPLOYEE)
+  rule   EscalationRule
+  tier   EscalationTier   @default(EMPLOYEE)
   status EscalationStatus @default(ACTIVE)
 
   /// The real deadline this breached.
