@@ -902,12 +902,63 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > `diffRecords` is exported separately because W1-09's `SheetRevision` needs the same comparison without
   > an audit row wrapped around it.
 
-- [ ] **`W2-10` · Shared Zod contracts** · **Est** 3h
+- [x] **`W2-10` · Shared Zod contracts** · **Est** 3h
   **Do:** `packages/contracts/src/` — one file per domain, exporting request and response schemas for every
   endpoint in Wave 4, plus inferred types. `goalSheetSchema` embeds the W2-02 weightage rules via `.refine()`.
   **Done when:** every schema has a round-trip test (valid parses, invalid rejects with a useful message);
   `packages/web` and `apps/api` both import it and type-check.
   **Verify:** `pnpm verify`
+
+  > **Note (W2-10):** Zod **4.4.3**. 80 contract tests, 100% coverage in `@aura/contracts`; 17 enum-drift
+  > tests in `@aura/db`; 9 in `apps/api`. Full `pnpm verify` green at **28/28**.
+  >
+  > **No business rule is restated here.** `goalSheetInputSchema` calls `validateWeightages` from
+  > `@aura/core` (W2-02) and maps each issue onto the offending goal's path; `createCycleRequestSchema` calls
+  > `findPhaseOverlaps` (W2-03). A schema that re-implemented either would be a *fourth* opinion on a
+  > question that already had three too many (F-10) — and a cycle that parses is now, by construction, a
+  > cycle `activePhase` can answer unambiguously about.
+  >
+  > **Enums come from `@aura/core`'s arrays, not a third copy.** `z.enum(UOMS)` rather than retyping the
+  > members. That collapses three declarations to two, and the remaining pair is now guarded: **the enum
+  > drift test owed since W2-01 is written**, in `packages/db/src/enum-drift.test.ts`, because that package
+  > is the only one allowed to import Prisma, core *and* contracts at once. Fifteen enums, compared by
+  > membership against the **generated** client rather than a hand-copied list, with a count assertion so a
+  > new enum cannot be added without a deliberate update here.
+  >
+  > **Two real bugs in my own code, both caught by the round-trip tests:**
+  >
+  > - `weightageSchema`'s two-decimal check was `Number.isInteger(Math.round(value * 100))`, which is
+  >   **always true** — the predicate tested nothing at all. Now compares the scaled value against its own
+  >   rounding with a tolerance, because `33.33 * 100` is `3332.9999999999995`.
+  > - `emailSchema` validated before trimming, so `" a@b.com "` — an ordinary paste out of a mail client —
+  >   was rejected outright. Normalisation now runs first via `.pipe`, which is why the order is called out
+  >   in the doc comment.
+  >
+  > **A third failure was my test being wrong, not the code:** the goal-count bound test built nine goals at
+  > `100/9 = 11.111…`, so the *precision* rule fired before the count rule. Rewritten with 11.11 (totalling
+  > 99.99, inside tolerance) so the count is the only fault, with the trap named in a comment.
+  >
+  > **`checkInRequestSchema` has no room for `target` or `weightage`.** Zod strips unknown keys, so a
+  > check-in payload carrying them silently loses them — F-04 closed by the shape of the contract rather
+  > than by a guard someone has to remember. A test asserts the stripping directly.
+  >
+  > **`loginRequestSchema` deliberately does not reuse `passwordSchema`.** Rejecting a short password at
+  > login leaks that the stored one is longer, and locks out anyone whose password predates a raised
+  > minimum. The floor belongs on the way in.
+  >
+  > **Consumers are real, not token imports.** `apps/api/src/validate.ts` is `parseBody`, which returns a
+  > result rather than throwing (a bad body is an ordinary 400) and groups messages **by field** so a form
+  > shows every problem in one round trip (US-305) — covered to 100%. `apps/web/src/lib/contracts.ts` is the
+  > app's single import point for API types plus the weightage constants, so W6's "15% left to allocate"
+  > hint cannot be computed from a number typed into a component.
+  >
+  > **One config change, and it is not a weakened assertion.** `packages/db`'s unit `testTimeout` is now 30s.
+  > The lazy-client regression test imports the generated Prisma client, and with Zod newly in that package's
+  > graph a **cold** transform crossed the 5s default — failing a test that asserts *side-effect freedom*,
+  > not speed. Warm, the same suite runs in 761ms. CI always runs cold, so this was a real flake, not a
+  > local quirk.
+  >
+  > New dependency: **`zod`** in `@aura/contracts` and `apps/api`. `@aura/core` remains dependency-free.
 
 ---
 

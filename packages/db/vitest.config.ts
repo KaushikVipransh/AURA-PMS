@@ -9,6 +9,13 @@ export default defineConfig({
     // vitest.integration.config.ts starts. Without this they get picked up by
     // the fast gate and fail for want of a database.
     exclude: ['**/*.integration.test.ts', '**/node_modules/**'],
+    // These tests import the generated Prisma client and, in enum-drift, the
+    // whole of Zod. On a warm Vite cache that costs ~200ms; on a cold one --
+    // CI, a fresh clone, or the first run after `prisma generate` -- it took
+    // over the 5s default and failed a test that asserts nothing about speed.
+    // Raising the ceiling keeps the assertion intact; leaving it would have
+    // made a side-effect guard fail for being slow.
+    testTimeout: 30_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

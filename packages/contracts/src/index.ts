@@ -1,14 +1,22 @@
 /**
- * @aura/contracts — the API contract.
+ * @aura/contracts — the API contract, as Zod schemas.
  *
- * One Zod schema per concept, serving four consumers at once: server-side
- * runtime validation, client-side form validation, the shared TypeScript type,
- * and the generated OpenAPI document.
+ * One definition of every request and response, imported by the server that
+ * parses it and by the client that builds it. The prototype validated in the
+ * browser and trusted the result: its check-in route accepted the client's
+ * whole payload and wrote it over an approved sheet (PLAN.md F-04). A shared
+ * schema removes the gap where those two ideas of "valid" could differ.
  *
- * This is the structural fix for PLAN.md F-10, where the same weightage rule
- * was written four different ways in four places.
- *
- * Schemas land in W2-10 — see TASKS.md.
+ * Business rules are **not** restated here. `goalSheetInputSchema` calls
+ * `validateWeightages` from `@aura/core`, and `createCycleRequestSchema` calls
+ * `findPhaseOverlaps`. A schema that re-implemented either would become a
+ * fourth opinion on a question that already had three too many (F-10).
  */
 
-export {};
+export * from './common.js';
+export * from './auth.js';
+export * from './user.js';
+export * from './cycle.js';
+export * from './goal.js';
+export * from './appraisal.js';
+export * from './compliance.js';

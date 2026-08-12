@@ -20,6 +20,12 @@ importers:
 
   apps/api:
     dependencies:
+      '@aura/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aura/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@aura/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -32,6 +38,9 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1(supports-color@5.5.0)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@aura/config':
         specifier: workspace:*
@@ -57,6 +66,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@aura/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aura/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.23(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -198,6 +213,13 @@ importers:
         version: 8.66.0(eslint@10.8.1(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
 
   packages/contracts:
+    dependencies:
+      '@aura/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@aura/config':
         specifier: workspace:*
@@ -257,6 +279,12 @@ importers:
       '@aura/config':
         specifier: workspace:*
         version: link:../config
+      '@aura/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@aura/core':
+        specifier: workspace:*
+        version: link:../core
       '@testcontainers/postgresql':
         specifier: ^12.1.0
         version: 12.1.0(supports-color@7.2.0)
