@@ -33,7 +33,7 @@ async function signedIn(overrides: { roles?: string[]; status?: string } = {}) {
     },
   });
 
-  const headers = await createSession(email, PASSWORD);
+  const { headers } = await createSession(email, PASSWORD);
   const cookie = headers.get('set-cookie') ?? '';
 
   return { org, user, email, cookie };

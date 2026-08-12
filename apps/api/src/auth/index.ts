@@ -135,14 +135,53 @@ export function requireRole(...roles: readonly Role[]) {
   };
 }
 
-/** Issue a session for an existing user. Returns the `Set-Cookie` headers. */
-export async function createSession(email: string, password: string): Promise<Headers> {
+/**
+ * Create a credentialed user.
+ *
+ * The organization must already exist: `orgId` is NOT NULL with no default,
+ * because a user with no organization is the shape PLAN.md F-02 allowed.
+ * Roles and status are **not** parameters — they are server-owned and set by
+ * the caller afterwards, so no request body can ever name a role.
+ */
+export async function createUser(input: {
+  readonly email: string;
+  readonly password: string;
+  readonly name: string;
+  readonly orgId: string;
+}): Promise<void> {
+  await auth.api.signUpEmail({ body: { ...input } });
+}
+
+/**
+ * Issue a session for an existing user.
+ *
+ * Returns the actor alongside the cookies, because every caller needs both and
+ * resolving the actor from a cookie that has not been sent yet is awkward
+ * enough that the first draft did it by faking a `Request`.
+ */
+export async function createSession(
+  email: string,
+  password: string,
+): Promise<{ headers: Headers; actor: Actor | null }> {
   const result = await auth.api.signInEmail({
     body: { email, password },
     returnHeaders: true,
   });
 
-  return result.headers;
+  return {
+    headers: result.headers,
+    actor: await getActorByCookie(result.headers.getSetCookie().join('; ')),
+  };
+}
+
+/** Resolve an actor from a raw cookie header. */
+export async function getActorByCookie(cookie: string): Promise<Actor | null> {
+  return getActor({ headers: { cookie } } as Request);
+}
+
+/** Revoke a session identified by a raw cookie header. */
+export async function revokeSessionByCookie(cookie: string): Promise<void> {
+  await auth.api.signOut({ headers: new Headers({ cookie }) });
 }
 
 /**

@@ -14,11 +14,22 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts', 'src/auth/**'],
-      /* `src/auth/**` is excluded from coverage, not from testing: it is
-         covered by the integration suite, which is the only place its claims
-         mean anything. Measuring it here would report 0% for code that is
-         thoroughly tested and invite someone to "fix" that with a mock.
+      exclude: [
+        'src/**/*.test.ts',
+        // Covered by the integration suite, which is the only place their
+        // claims mean anything -- see the note below.
+        'src/auth/**',
+        'src/routes/**',
+        'src/app.ts',
+        'src/server.ts',
+      ],
+      /* The excluded paths are excluded from *coverage*, not from testing.
+         Auth, routers and the app shell are covered by the integration suite,
+         which is the only place their claims mean anything: "the password is
+         hashed", "the session row is really gone", "a disallowed origin gets
+         no CORS header" are all questions a mock answers by agreeing with you.
+         Measuring them here would report 0% for thoroughly tested code and
+         invite someone to "fix" that with exactly such a mock.
 
          No thresholds yet: this app is still largely the prototype's
          JavaScript, so there is little TypeScript source to measure. They are

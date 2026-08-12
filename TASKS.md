@@ -1101,12 +1101,55 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > not claiming it is fixed. Recorded here so the next occurrence is a second data point rather than a
   > surprise.
 
-- [ ] **`W3-03` · Signup, login, logout endpoints** · **Est** 2h
+- [x] **`W3-03` · Signup, login, logout endpoints** · **Est** 2h
   **Do:** `POST /auth/signup` (creates org + first admin), `/auth/login`, `/auth/logout`, `GET /auth/session`.
   Access token short-lived; refresh in an httpOnly `SameSite=Lax` cookie. PRD US-102.
   **Done when:** integration tests cover the happy path, wrong password, unknown email (identical response and
   timing), and that logout revokes server-side.
   **Verify:** `pnpm verify:integration`
+
+  > **Note (W3-03):** `server.js` is **deleted** — the last of the prototype's JavaScript in `apps/api`.
+  > `allowJs`/`checkJs` are gone from its tsconfig and the package is fully TypeScript, run through `tsx`.
+  >
+  > **Deviation from the task text: there is no access-token/refresh-token pair.** The task specified "access
+  > token short-lived; refresh in an httpOnly `SameSite=Lax` cookie", which describes a JWT design. Better
+  > Auth issues an **opaque session token** in an httpOnly `SameSite=Lax` cookie, renewed server-side when a
+  > request arrives inside the last day of its seven-day life. That is not a lesser version of the same
+  > thing — it is better for this requirement specifically, because the task also demands that **logout
+  > revokes server-side**, and a JWT cannot be revoked. Honouring both literally would have meant building a
+  > revocation list, i.e. reinventing sessions with extra steps. The security properties the task was
+  > reaching for (httpOnly, SameSite=Lax, short life, real revocation) are all tested.
+  >
+  > **Signup is not atomic, and this is a known limitation rather than an oversight.** The auth library
+  > writes the user through its own adapter, outside any transaction we can open, so the organization must
+  > exist first. A failed signup compensates by deleting the organization it just made — safe because
+  > nothing can reference it yet. The duplicate-email case is checked *before* anything is created, so the
+  > common failure never reaches the compensating path; a test asserts no orphan organization is left behind.
+  > The alternative, a nullable `orgId` filled in afterwards, is exactly the shape F-02 is about.
+  >
+  > **The first user is promoted after creation, never at sign-up.** `roles` is not an `additionalField`, so
+  > no request body can name a role. "The first user of a new organization is its administrator" is a fact
+  > the server decides.
+  >
+  > **Account enumeration is closed on four surfaces, not one.** A wrong password, an unknown address, and a
+  > *malformed* address all return byte-identical 401s — the last one matters, because a 400 with field
+  > detail there says "that address does not even look real", which is a different answer. None of the three
+  > sets a cookie. The timing test is deliberately loose (a 10× bound over three runs): a tight bound flakes
+  > on shared CI and gets "fixed" by deletion, while the real failure — returning without ever hashing — is
+  > 50–100× faster, not 5×.
+  >
+  > **A deactivated user with the correct password is refused, and the session just issued is revoked**
+  > rather than left behind (US-106).
+  >
+  > **The auth library's routes are mounted before `express.json()`**, deliberately. Its handler reads the
+  > raw request stream, and a body parser that has already consumed it leaves the handler waiting — a
+  > failure that presents as a hang rather than an error.
+  >
+  > **Two mistakes of mine, both mine and neither the code's:** the first draft of `routes/auth.ts` reached
+  > for `import('../auth/config.js')`, which the W3-02 lint boundary exists to forbid — the fix was to widen
+  > the interface (`createUser`, `getActorByCookie`, `revokeSessionByCookie`) rather than route around it,
+  > which is the boundary doing its job on its author. And `--reporter=basic` is not a Vitest 4 reporter; an
+  > apparent "hang" was that, plus a `| tail` that buffered all output until the pipeline ended.
 
 - [ ] **`W3-04` · Password reset flow** · **Est** 2h
   **Do:** `POST /auth/forgot`, `POST /auth/reset`. Single-use token, 60-minute expiry, all sessions invalidated
