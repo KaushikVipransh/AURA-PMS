@@ -1,5 +1,5 @@
 import { prisma } from '@aura/db';
-import { afterAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { auth } from './config.js';
 
@@ -21,9 +21,11 @@ async function makeOrg() {
   });
 }
 
-afterAll(async () => {
-  await prisma.$disconnect();
-});
+/*
+ * No `$disconnect` here: `prisma` is a process-wide singleton shared with the
+ * other integration files, and closing it at the end of this one broke a
+ * `create` in the next. The container teardown closes everything.
+ */
 
 describe('Better Auth · sign-up', () => {
   it('creates a user carrying the organization it was given', async () => {

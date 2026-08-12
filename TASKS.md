@@ -1045,13 +1045,61 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > nothing visibly — sessions still issue, and they are simply forgeable — which is the worst failure mode
   > a config error can have.
 
-- [ ] **`W3-02` · Internal auth interface** · **Est** 1.5h
+- [x] **`W3-02` · Internal auth interface** · **Est** 1.5h
   **Do:** `apps/api/src/auth/index.ts` exporting only `getActor(req)`, `requireAuth`, `requireRole`,
   `createSession`, `revokeSession`. **No other file in the codebase may import Better Auth directly** — enforce
   with an `import/no-restricted-paths` ESLint rule. This is the reversibility guarantee from
   [TECH_STACK.md](TECH_STACK.md) §6.
   **Done when:** the lint rule fails on a deliberate direct import, then passes once removed.
   **Verify:** `pnpm verify`
+
+  > **Note (W3-02):** 16 interface integration tests (28 in `apps/api` total). `pnpm verify` 28/28,
+  > `pnpm verify:integration` 83 (55 db + 28 api).
+  >
+  > **`no-restricted-imports` rather than `import/no-restricted-paths`.** `eslint-plugin-import` is not
+  > installed and its flat-config support is still awkward; the built-in rule scoped by `files`/`ignores` is
+  > the same mechanism W0-03 already proved on the `@aura/core` purity rule, and it needs no new dependency.
+  >
+  > **The rule blocks two vectors, not one.** `better-auth` itself, *and* `**/auth/config` — importing the
+  > config module hands you the raw Better Auth instance, which routes around this boundary just as
+  > effectively as importing the library. Proven in both directions with a throwaway `boundary-probe.ts`:
+  > two errors with the violations present, clean once removed, and no restriction errors *inside*
+  > `src/auth/`.
+  >
+  > **`authRoutes` is exported as a built handler, not as the auth instance.** Exporting the instance so
+  > `server.ts` could call `toNodeHandler(auth)` itself would put `better-auth` back into a second file and
+  > make the whole boundary decorative. The first draft did exactly that, under an
+  > `_authInstanceForMountingOnly` name that was its own admission of the problem.
+  >
+  > **`getActor` re-reads roles and status from the database on every request.** The session carries
+  > identity; the database carries authority. Taking roles from the session payload would leave a demoted or
+  > deactivated user with their old permissions until the cookie expired — up to seven days of access
+  > someone has already had removed (PRD US-106). Two tests pin this: a promotion visible on the
+  > already-issued session, and a deactivation taking effect immediately.
+  >
+  > **`requireRole` calls `next(new Error(...))` when used without `requireAuth`**, rather than answering
+  > 403. A 403 would hide a misconfigured route behind a plausible response, and the route would look like it
+  > was working.
+  >
+  > **Three things the tests corrected:**
+  > - `signUpEmail` **issues a session of its own**, so a freshly signed-up user already holds one before
+  >   `createSession` runs. The revoke test asserted a count of zero; it now asserts the count decreased,
+  >   because zero was asserting something untrue about the library.
+  > - `prisma` is a process-wide singleton shared across integration files. An `afterAll` calling
+  >   `$disconnect()` in one file closed the connection the next file was still using — "Server has closed
+  >   the connection" from an unrelated `create`. Both removed; container teardown closes everything.
+  > - `exactOptionalPropertyTypes` refuses `req.actor = actor ?? undefined`. That is the flag doing its job:
+  >   "absent" and "present and undefined" are different states, and the middleware only produces the first.
+  >
+  > **Two type dependencies were needed and are worth naming:** `@types/express`, and `@types/express-serve-static-core`
+  > — the latter because pnpm's strict layout makes the `declare module` augmentation target unresolvable
+  > unless it is a direct dependency (`TS2664: Invalid module name in augmentation`).
+  >
+  > **One observed flake, not yet explained.** `verify:integration` failed once with a single API test
+  > failing, then passed twice in a row including a standalone run. Both suites start their own Postgres
+  > container under turbo, so resource contention is the likely cause, but I have not reproduced it and am
+  > not claiming it is fixed. Recorded here so the next occurrence is a second data point rather than a
+  > surprise.
 
 - [ ] **`W3-03` · Signup, login, logout endpoints** · **Est** 2h
   **Do:** `POST /auth/signup` (creates org + first admin), `/auth/login`, `/auth/logout`, `GET /auth/session`.
