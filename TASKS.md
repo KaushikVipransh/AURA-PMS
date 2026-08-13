@@ -1396,11 +1396,11 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 - [x] **`W4-06` · Goal sheet create & read** · **Est** 2h · PRD US-301, US-304
 - [x] **`W4-07` · Goal sheet submit** · **Est** 2h · PRD US-302
   **Do:** Validates with W2-02 + W2-10, writes a `SheetRevision`, transitions status.
-- [ ] **`W4-08` · Approve endpoint** · **Est** 2h · PRD US-502
+- [x] **`W4-08` · Approve endpoint** · **Est** 2h · PRD US-502
   **Do:** Snapshot + lock + audit + notification enqueue, all in one transaction.
-- [ ] **`W4-09` · Rework endpoint** · **Est** 1.5h · PRD US-305
+- [x] **`W4-09` · Rework endpoint** · **Est** 1.5h · PRD US-305
   **Do:** Reason is **required**; per-goal comments supported.
-- [ ] **`W4-10` · Manager inline adjustment** · **Est** 2h · PRD US-503
+- [x] **`W4-10` · Manager inline adjustment** · **Est** 2h · PRD US-503
   **Do:** Re-runs full validation; preserves the original in revision history.
 - [x] **`W4-11` · Check-in endpoint with field whitelist** · **Est** 2.5h · PRD US-601
 
@@ -1450,7 +1450,31 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 - [ ] **`W4-12` · Discussion comments** · **Est** 1.5h · PRD US-602
 - [ ] **`W4-13` · Shared goal create + cascade preview + commit** · **Est** 3h · PRD US-401, 402, 403
   **Do:** `POST /shared-goals/preview` returns the W2-07 plan; `POST /shared-goals` commits it atomically.
-- [ ] **`W4-14` · Sheet revision history + diff** · **Est** 2h · PRD US-1103
+- [x] **`W4-14` · Sheet revision history + diff** · **Est** 2h · PRD US-1103
+
+  > **Note (W4-08, W4-09, W4-10, W4-14):** 16 tests. Approve, return and adjust each snapshot the sheet
+  > **before** the change — a snapshot written afterwards records the outcome, which the row already tells
+  > you; the point of a revision is to preserve what is about to stop being true (US-1103).
+  >
+  > **The notification is inside the transaction.** One surviving a rolled-back approval would tell someone
+  > their goals were approved when they were not. W5 turns these rows into real deliveries; the row is
+  > written here so the enqueue cannot outlive the change that justified it.
+  >
+  > **Self-approval is refused twice.** W2-06 already excludes `SELF` from `APPROVE_GOAL_SHEET`, and
+  > `approveSheet` repeats the check because the service is reachable from a job or a script that never
+  > consulted the policy table. "Nobody approves their own goals" is the rule an approval workflow exists
+  > to enforce, so it is worth stating in both places.
+  >
+  > **W4-10 validates the result, not the adjustment.** A manager who fixes one goal and breaks the total
+  > has fixed nothing, so the projected sheet is run through `validateWeightages` before anything is
+  > written, and a refusal leaves every weightage untouched. The adjustment writes exactly one column: a
+  > manager rebalancing weightage does not get to retitle a goal, and a test posts a `title` to prove it.
+  >
+  > **A test-authoring mistake worth recording.** The first run failed four assertions because the fixture
+  > created goals in one order and read them back `orderBy: { title: 'asc' }` — so `goals[0]` was the 30 and
+  > not the 40, and every weightage sum in the file was computed against the wrong goal. Fixed by prefixing
+  > the titles `A`/`B`/`C` so the sort order matches the written order. The tests were wrong, not the code.
+
 - [ ] **`W4-15` · Self-appraisal endpoints** · **Est** 2.5h · PRD US-701
 - [ ] **`W4-16` · Manager rating endpoints** · **Est** 2.5h · PRD US-702, US-703
   **Do:** Blocked until self-appraisal submits or its deadline passes.

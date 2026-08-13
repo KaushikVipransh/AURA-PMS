@@ -8,11 +8,23 @@
  */
 
 import { can, isActionAllowed, scoreSheet, type Cycle } from '@aura/core';
-import { checkInRequestSchema, saveDraftRequestSchema } from '@aura/contracts';
+import {
+  adjustWeightageRequestSchema,
+  approveSheetRequestSchema,
+  checkInRequestSchema,
+  returnSheetRequestSchema,
+  saveDraftRequestSchema,
+} from '@aura/contracts';
 import { Router, type Response } from 'express';
 
 import { authenticated, type AuthedRequest } from '../auth/authenticated.js';
 import { requireAuth } from '../auth/index.js';
+import {
+  ApprovalStateError,
+  adjustWeightages,
+  approveSheet,
+  returnSheet,
+} from '../services/approvals.js';
 import { SheetStateError, recordCheckIn, saveDraft, submitSheet } from '../services/sheets.js';
 import { auditActor } from '../services/users.js';
 import { parseBody } from '../validate.js';
@@ -36,6 +48,56 @@ function sendSheetError(res: Response, error: SheetStateError): void {
     code: error.code,
     detail: error.detail,
   });
+}
+
+/** Translate an approval refusal into a status. */
+function sendApprovalError(res: Response, error: ApprovalStateError): void {
+  res.status(error.code === 'INVALID_WEIGHTAGES' ? 422 : 409).json({
+    error: error.message,
+    code: error.code,
+    detail: error.detail,
+  });
+}
+
+/**
+ * Load a sheet with the owner's reporting chain, for `can()`.
+ *
+ * The chain is what separates "a manager" from "*their* manager" — W2-06
+ * grants approval on DIRECT_REPORT and INDIRECT_REPORT and refuses SAME_ORG,
+ * so a manager from another team gets 403 rather than authority.
+ */
+async function loadSheetWithChain(req: AuthedRequest, sheetId: string) {
+  const sheet = await req.db.goalSheet.findUnique({
+    where: { id: sheetId },
+    select: { id: true, userId: true, cycleId: true, status: true },
+  });
+
+  if (sheet === null) {
+    return null;
+  }
+
+  const chain: string[] = [];
+  const seen = new Set<string>();
+  let current = (
+    await req.db.user.findUnique({
+      where: { id: sheet.userId },
+      select: { managerId: true },
+    })
+  )?.managerId ?? null;
+
+  while (current !== null && !seen.has(current) && chain.length < 20) {
+    seen.add(current);
+    chain.push(current);
+    current =
+      (
+        await req.db.user.findUnique({
+          where: { id: current },
+          select: { managerId: true },
+        })
+      )?.managerId ?? null;
+  }
+
+  return { sheet, managerChainIds: chain };
 }
 
 /** Load a cycle in the shape `isActionAllowed` expects. */
@@ -248,5 +310,172 @@ sheetsRouter.post(
       }
       throw error;
     }
+  }),
+);
+
+/** US-502 — approve and lock. */
+sheetsRouter.post(
+  '/:id/approve',
+  authenticated(async (req, res) => {
+    const id = pathParam(req.params, 'id');
+    const found = await loadSheetWithChain(req, id);
+
+    if (found === null) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    const parsed = parseBody(approveSheetRequestSchema, req.body);
+
+    if (!parsed.ok) {
+      res.status(400).json(parsed.error);
+      return;
+    }
+
+    if (
+      !can(req.actor, 'APPROVE_GOAL_SHEET', {
+        orgId: req.actor.orgId,
+        subjectUserId: found.sheet.userId,
+        managerChainIds: found.managerChainIds,
+      })
+    ) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    try {
+      const sheet = await approveSheet(req.db, auditActor(req.actor, requestContext(req)), id);
+      res.status(200).json({ sheet });
+    } catch (error) {
+      if (error instanceof ApprovalStateError) {
+        sendApprovalError(res, error);
+        return;
+      }
+      throw error;
+    }
+  }),
+);
+
+/** US-305 — return for rework, with a required reason. */
+sheetsRouter.post(
+  '/:id/return',
+  authenticated(async (req, res) => {
+    const id = pathParam(req.params, 'id');
+    const found = await loadSheetWithChain(req, id);
+
+    if (found === null) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    const parsed = parseBody(returnSheetRequestSchema, req.body);
+
+    if (!parsed.ok) {
+      res.status(400).json(parsed.error);
+      return;
+    }
+
+    if (
+      !can(req.actor, 'RETURN_GOAL_SHEET', {
+        orgId: req.actor.orgId,
+        subjectUserId: found.sheet.userId,
+        managerChainIds: found.managerChainIds,
+      })
+    ) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    try {
+      const sheet = await returnSheet(req.db, auditActor(req.actor, requestContext(req)), id, parsed.data);
+      res.status(200).json({ sheet });
+    } catch (error) {
+      if (error instanceof ApprovalStateError) {
+        sendApprovalError(res, error);
+        return;
+      }
+      throw error;
+    }
+  }),
+);
+
+/** US-503 — adjust weightages inline, with the employee notified. */
+sheetsRouter.post(
+  '/:id/adjust',
+  authenticated(async (req, res) => {
+    const id = pathParam(req.params, 'id');
+    const found = await loadSheetWithChain(req, id);
+
+    if (found === null) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    const parsed = parseBody(adjustWeightageRequestSchema, req.body);
+
+    if (!parsed.ok) {
+      res.status(400).json(parsed.error);
+      return;
+    }
+
+    if (
+      !can(req.actor, 'ADJUST_WEIGHTAGE', {
+        orgId: req.actor.orgId,
+        subjectUserId: found.sheet.userId,
+        managerChainIds: found.managerChainIds,
+      })
+    ) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    try {
+      const sheet = await adjustWeightages(
+        req.db,
+        auditActor(req.actor, requestContext(req)),
+        id,
+        parsed.data,
+      );
+      res.status(200).json({ sheet });
+    } catch (error) {
+      if (error instanceof ApprovalStateError) {
+        sendApprovalError(res, error);
+        return;
+      }
+      throw error;
+    }
+  }),
+);
+
+/** US-1103 — every version of a sheet, newest first. */
+sheetsRouter.get(
+  '/:id/revisions',
+  authenticated(async (req, res) => {
+    const id = pathParam(req.params, 'id');
+    const found = await loadSheetWithChain(req, id);
+
+    if (found === null) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    if (
+      !can(req.actor, 'VIEW_SHEET_REVISIONS', {
+        orgId: req.actor.orgId,
+        subjectUserId: found.sheet.userId,
+        managerChainIds: found.managerChainIds,
+      })
+    ) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    const revisions = await req.db.sheetRevision.findMany({
+      where: { sheetId: id },
+      orderBy: { revision: 'desc' },
+      select: { id: true, revision: true, reason: true, actorId: true, createdAt: true, snapshot: true },
+    });
+
+    res.status(200).json({ revisions });
   }),
 );
