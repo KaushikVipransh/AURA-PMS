@@ -14,6 +14,7 @@ import { Router, type Response } from 'express';
 
 import { authenticated, type AuthedRequest } from '../auth/authenticated.js';
 import { requireAuth } from '../auth/index.js';
+import { auditActor, deactivateUser, inviteUser } from '../services/users.js';
 import { parseBody } from '../validate.js';
 
 /**
@@ -31,6 +32,13 @@ function pathParam(params: Record<string, string | string[] | undefined>, key: s
     return value[0] ?? '';
   }
   return value ?? '';
+}
+
+/** The request context an audit row records alongside the change. */
+function requestContext(req: AuthedRequest): { ip: string | undefined; userAgent: string | undefined } {
+  const userAgent = req.headers['user-agent'];
+
+  return { ip: req.ip, userAgent: typeof userAgent === 'string' ? userAgent : undefined };
 }
 
 export const usersRouter: Router = Router();
@@ -133,17 +141,12 @@ usersRouter.post(
       return;
     }
 
-    const invited = await req.db.user.create({
-      data: {
-        orgId: req.actor.orgId,
-        email,
-        name,
-        roles: [role],
-        status: 'INVITED',
-        managerId,
-        teamId,
-      },
-      select: { id: true, email: true, name: true, roles: true, status: true, managerId: true },
+    const invited = await inviteUser(req.db, auditActor(req.actor, requestContext(req)), {
+      name,
+      email,
+      role,
+      managerId,
+      teamId,
     });
 
     res.status(201).json({ user: invited });
@@ -195,15 +198,8 @@ usersRouter.post(
       return;
     }
 
-    const updated = await req.db.user.update({
-      where: { id },
-      data: { status: 'DEACTIVATED' },
-      select: { id: true, status: true },
-    });
-
-    // Their sessions go too. Leaving them alive means the access continues
-    // until a cookie happens to expire, which is up to seven days.
-    await req.db.session.deleteMany({ where: { userId: id } });
+    // The update, the session revocation and the audit row commit together.
+    const updated = await deactivateUser(req.db, auditActor(req.actor, requestContext(req)), id);
 
     res.status(200).json({ user: updated });
   }),

@@ -1337,18 +1337,56 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
 > **Independence:** W4-01 first (the service/audit wrapper). W4-02…W4-21 each own one router + service file
 > pair and are fully parallel.
 
-- [ ] **`W4-01` · Transactional service wrapper** · **Est** 2.5h
+- [x] **`W4-01` · Transactional service wrapper** · **Est** 2.5h
   **Do:** `apps/api/src/services/withAudit.ts` — wraps a mutation so the change and its `AuditEvent` commit in
   one `prisma.$transaction`. An audit write failure rolls back the mutation. Every mutating service must use
   it. Closes F-09 and satisfies PRD US-1101.
   **Done when:** a test forcing an audit-write failure proves the mutation rolled back.
   **Verify:** `pnpm verify:integration`
 
-- [ ] **`W4-02` · Audit completeness test** · **Est** 1.5h
+  > **Note (W4-01):** `withAudit(db, actor, spec, body)` runs the body inside `$transaction` on the
+  > **org-scoped** client, so the body's queries stay scoped *and* the audit row commits with them.
+  >
+  > **The failure this guards against is subtler than "we forgot to log".** It is the audit trail that is
+  > *mostly* right: a write succeeds, its audit insert fails, nobody notices, and months later the trail is
+  > used to settle a dispute while quietly missing the row that matters. A trail with unknown gaps is worse
+  > than no trail, because it is believed.
+  >
+  > **The rollback is forced with a real database failure, not a mock.** The test passes an `actorId` that
+  > does not exist; `AuditEvent.actor` is `onDelete: Restrict`, so Postgres refuses the insert on a foreign
+  > key violation. A mocked failure would prove the mock works — only a real constraint proves the
+  > transaction boundary holds. Three assertions follow it: no user row, no session revocation, no audit row.
+  >
+  > **A no-op writes no audit row.** `buildAuditEvent` returns `null` for an empty diff (W2-09), and that
+  > propagates here.
+  >
+  > **`MissingAuditTargetError`** rather than a silently unattributed row: an audit event nobody can look up
+  > by entity is not an audit event.
+  >
+  > `deactivateUser` puts the status change, the session revocation and the audit row in one transaction. A
+  > deactivation whose session revocation failed would read as "we removed their access" in every report
+  > while being false.
+
+- [x] **`W4-02` · Audit completeness test** · **Est** 1.5h
   **Do:** Reflect over `apps/api/src/services/`, identify every exported mutating function, and assert each is
   wrapped by `withAudit`. **A new unaudited mutation fails the build.**
   **Done when:** the test passes; adding an unwrapped mutation fails it.
   **Verify:** `pnpm verify:integration`
+
+  > **Note (W4-02):** 13 tests. Reads the service **sources** rather than importing them, and the trade is
+  > worth stating: a runtime check can only tell whether a function called `withAudit` on the paths a test
+  > happened to exercise. Source inspection answers "is there a write here that is not wrapped" for every
+  > path, including the ones nobody tested.
+  >
+  > Its weakness is the mirror image — it reasons about text, so a write behind an unusual construct could
+  > slip past. Mitigated by making detection deliberately broad (any Prisma write verb counts) and by
+  > asserting the scan found services at all, so a broken scan fails loudly rather than passing on an empty
+  > set.
+  >
+  > **The detector has its own tests.** Known-bad and known-good sources are fed to it directly, plus every
+  > write verb and a check that reads are not mistaken for writes. Without those, a regression in the
+  > scanning logic would surface as a silent green — which is precisely the failure this task exists to
+  > prevent, one level up.
 
 - [ ] **`W4-03` · `GET /me` and profile update** · **Est** 1h · PRD US-102
 - [ ] **`W4-04` · Team & org-chart endpoints** · **Est** 2h · PRD US-105, US-1003
