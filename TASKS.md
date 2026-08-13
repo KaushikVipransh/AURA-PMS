@@ -1388,13 +1388,13 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > scanning logic would surface as a silent green — which is precisely the failure this task exists to
   > prevent, one level up.
 
-- [ ] **`W4-03` · `GET /me` and profile update** · **Est** 1h · PRD US-102
+- [x] **`W4-03` · `GET /me` and profile update** · **Est** 1h · PRD US-102
 - [ ] **`W4-04` · Team & org-chart endpoints** · **Est** 2h · PRD US-105, US-1003
   **Do:** Includes the recursive reporting-chain query as a `WITH RECURSIVE` CTE.
-- [ ] **`W4-05` · Review cycle CRUD** · **Est** 2.5h · PRD US-201, 202, 203
+- [x] **`W4-05` · Review cycle CRUD** · **Est** 2.5h · PRD US-201, 202, 203
   **Do:** Validates non-overlapping phases via W2-03 and the single-active-cycle constraint from W1-05.
-- [ ] **`W4-06` · Goal sheet create & read** · **Est** 2h · PRD US-301, US-304
-- [ ] **`W4-07` · Goal sheet submit** · **Est** 2h · PRD US-302
+- [x] **`W4-06` · Goal sheet create & read** · **Est** 2h · PRD US-301, US-304
+- [x] **`W4-07` · Goal sheet submit** · **Est** 2h · PRD US-302
   **Do:** Validates with W2-02 + W2-10, writes a `SheetRevision`, transitions status.
 - [ ] **`W4-08` · Approve endpoint** · **Est** 2h · PRD US-502
   **Do:** Snapshot + lock + audit + notification enqueue, all in one transaction.
@@ -1402,7 +1402,47 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Do:** Reason is **required**; per-goal comments supported.
 - [ ] **`W4-10` · Manager inline adjustment** · **Est** 2h · PRD US-503
   **Do:** Re-runs full validation; preserves the original in revision history.
-- [ ] **`W4-11` · Check-in endpoint with field whitelist** · **Est** 2.5h · PRD US-601
+- [x] **`W4-11` · Check-in endpoint with field whitelist** · **Est** 2.5h · PRD US-601
+
+  > **Note (W4-03, W4-05, W4-06, W4-07, W4-11):** 157 API integration tests. All five share one shape —
+  > authenticate, ask `can()`, delegate the write to an audited service — so every mutation in this slice is
+  > covered by W4-01's transaction and W4-02's completeness gate.
+  >
+  > **W4-03 needed a schema change, not a workaround.** `@aura/contracts` already declared `timeZone` on the
+  > session and profile schemas and W2-04's `daysOverdue` takes one as a parameter, but `User` had no such
+  > column — a contract field with nothing behind it. Added as `timeZone String @default("UTC")`, defaulting
+  > to UTC rather than the server's zone, which is the classic way this breaks once the server moves.
+  >
+  > **W4-05 checks phase overlap in the service as well as the schema.** Not redundancy: the schema guards
+  > the HTTP boundary, the service guards W5's jobs and any future importer that never sees a request body.
+  > Both call the same `findPhaseOverlaps` from W2-03, so they cannot disagree. Single-active-cycle is
+  > enforced by the partial unique index from W1-05; the service check exists only to turn a constraint
+  > violation into a message a person can act on.
+  >
+  > **W4-07 computes the revision number inside the transaction**, which `@@unique([sheetId, revision])`
+  > makes safe: two concurrent submits both read the same maximum, and the loser fails on the constraint
+  > rather than silently overwriting the winner's snapshot.
+  >
+  > **W4-11 closes F-04 with two independent guards.** `checkInRequestSchema` has no room for `target`,
+  > `weightage`, `title`, `thrustArea` or `direction`, so Zod strips them; and `recordCheckIn` writes exactly
+  > two named columns rather than spreading the request. Either alone would do today. Both together mean the
+  > protection survives someone loosening the schema without reading the service, or writing a caller that
+  > never goes through HTTP. The test sends all five forbidden fields and asserts each is unchanged while the
+  > two writable ones moved.
+  >
+  > **A real bug in W2-09 surfaced here, and it would have broken every audited mutation touching a decimal
+  > column.** `isPlainObject` tested only "is an object and not a Date", so a Prisma `Decimal` was walked as
+  > though it were a record; the diff came out carrying its internals and a `constructor` function, and
+  > Prisma refused the write with *"could not serialize [object Function]"*. Fixed by requiring a plain
+  > prototype and rendering anything else via `toJSON`, a real `toString`, or its own enumerable data —
+  > never `Object.prototype.toString`, which would store the literal text `[object Object]`: something that
+  > looks like a recorded value and carries none. `isEqual` gained the matching case, so two Decimals holding
+  > the same number no longer read as a change on every save.
+  >
+  > **The error handler now honours `DEBUG_ERRORS=on`.** It was silent under `NODE_ENV=test`, which is right
+  > for a suite asserting a 500 and wrong when you are trying to find one — ten failures all reported
+  > `expected 500 to be 200` and nothing else.
+
   **Do:** **Server-side whitelist — only `actualAchievement` and `status` are writable on a locked sheet.**
   Everything else in the payload is ignored, not trusted. Closes F-04.
   **Done when:** a test sends a payload mutating `title`, `target`, and `weightage` on a locked sheet and

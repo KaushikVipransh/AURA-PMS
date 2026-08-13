@@ -100,13 +100,27 @@ function normalise(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+/**
+ * A plain object — one whose prototype is `Object.prototype` or `null`.
+ *
+ * The prototype check is load-bearing, not pedantry. The first version tested
+ * only "is an object and not a Date", so every class instance counted: a
+ * Prisma `Decimal` was walked as though it were a record, and the diff came
+ * out carrying its internals and a `constructor` function. Prisma then refused
+ * the write with "could not serialize [object Function]" — a 500 on every
+ * audited mutation whose row contained a decimal column.
+ *
+ * Recursing into a value whose shape you do not control is the mistake; the
+ * fix is to treat anything with its own prototype as a leaf and render it.
+ */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    !(value instanceof Date)
-  );
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype: unknown = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null;
 }
 
 function isEqual(a: unknown, b: unknown): boolean {
@@ -120,6 +134,12 @@ function isEqual(a: unknown, b: unknown): boolean {
     const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
     return [...keys].every((key) => isEqual(a[key], b[key]));
   }
+  /* Two Decimals holding the same number are different objects. Comparing them
+     by identity would report a change on every save that touched a decimal
+     column and changed nothing. */
+  if (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null) {
+    return String(toJsonValue(a)) === String(toJsonValue(b));
+  }
   return Object.is(a, b);
 }
 
@@ -132,7 +152,15 @@ function isSensitive(path: string, triggers: readonly string[]): boolean {
     );
 }
 
-/** Dates become ISO strings; everything else is already JSON-shaped. */
+/**
+ * Render a value into something JSON can hold.
+ *
+ * Dates become ISO strings. Arrays and plain objects are mapped through.
+ * Anything else that is an object — a `Decimal`, a `BigInt` wrapper, any class
+ * instance — is rendered by its own `toJSON` if it has one and by `String`
+ * otherwise, because an audit payload records *what a field became*, and for a
+ * decimal that is its value, not its internal digit array.
+ */
 function toJsonValue(value: unknown): unknown {
   if (value instanceof Date) {
     return value.toISOString();
@@ -142,6 +170,34 @@ function toJsonValue(value: unknown): unknown {
   }
   if (isPlainObject(value)) {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJsonValue(item)]));
+  }
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  if (typeof value === 'object' && value !== null) {
+    const instance = value as { toJSON?: () => unknown; toString?: () => string };
+
+    if (typeof instance.toJSON === 'function') {
+      return instance.toJSON();
+    }
+
+    /*
+     * Only use `toString` when the class actually defines one. Falling through
+     * to `Object.prototype.toString` would store the literal text
+     * "[object Object]", which is worse than storing nothing: it looks like a
+     * recorded value and carries none.
+     */
+    if (typeof instance.toString === 'function' && instance.toString !== Object.prototype.toString) {
+      return instance.toString();
+    }
+
+    // Last resort: the object's own enumerable data, rendered. Functions are
+    // dropped by the recursion rather than reaching the database.
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, item]) => typeof item !== 'function')
+        .map(([key, item]) => [key, toJsonValue(item)]),
+    );
   }
   return value;
 }

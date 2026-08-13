@@ -18,6 +18,8 @@ import express, { type Express, type NextFunction, type Request, type Response }
 
 import { authRoutes } from './auth/index.js';
 import { authRouter } from './routes/auth.js';
+import { cyclesRouter, meRouter } from './routes/cycles.js';
+import { sheetsRouter } from './routes/sheets.js';
 import { usersRouter } from './routes/users.js';
 import { authRateLimit, securityHeaders } from './security.js';
 
@@ -51,6 +53,9 @@ function allowedOrigins(): string[] {
 export const ROUTER_MOUNTS = [
   { prefix: '/auth', router: authRouter },
   { prefix: '/users', router: usersRouter },
+  { prefix: '/me', router: meRouter },
+  { prefix: '/cycles', router: cyclesRouter },
+  { prefix: '/sheets', router: sheetsRouter },
 ] as const;
 
 export function createApp(): Express {
@@ -99,7 +104,10 @@ export function createApp(): Express {
    * in W7; here it is simply not sent.
    */
   app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
-    if (process.env['NODE_ENV'] !== 'test') {
+    /* Silent in tests so a suite asserting a 500 does not print a stack, but
+       `DEBUG_ERRORS=on` brings it back -- an error handler that hides the
+       cause makes every 500 look identical while you are trying to find one. */
+    if (process.env['NODE_ENV'] !== 'test' || process.env['DEBUG_ERRORS'] === 'on') {
       console.error(error);
     }
     res.status(500).json({ error: 'Internal server error' });

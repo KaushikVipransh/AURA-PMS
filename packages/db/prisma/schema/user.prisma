@@ -30,6 +30,15 @@ model User {
   emailVerified Boolean @default(false)
   image         String?
 
+  /// The zone every deadline and overdue count for this person is read in.
+  ///
+  /// Added in W4-03: `@aura/contracts` already declared it on the session and
+  /// profile schemas, and W2-04's `daysOverdue` takes one as a parameter, so
+  /// the column was the missing half of a decision already made. Defaults to
+  /// UTC rather than to the server's zone — a server-local default is the
+  /// classic way this goes wrong once the server moves.
+  timeZone String @default("UTC")
+
   /// Multiple roles per user — an HR admin is usually also an employee with
   /// their own goal sheet. Checked server-side on every request; the prototype
   /// kept this in localStorage and never verified it (F-01).

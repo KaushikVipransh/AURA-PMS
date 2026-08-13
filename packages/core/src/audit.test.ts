@@ -391,3 +391,109 @@ describe('buildAuditEvent', () => {
     expect([JSON.stringify(before), JSON.stringify(after)]).toEqual(snapshot);
   });
 });
+
+describe('diffRecords · values that are not plain objects', () => {
+  /**
+   * A stand-in for Prisma's `Decimal`: a class instance holding a value.
+   *
+   * The first version of `isPlainObject` tested only "object and not a Date",
+   * so an instance like this was walked as though it were a record. The diff
+   * came out carrying its internals and a `constructor` function, and Prisma
+   * refused the write with "could not serialize [object Function]" — a 500 on
+   * every audited mutation whose row had a decimal column.
+   */
+  class Decimalish {
+    // A plain field, not a parameter property: `erasableSyntaxOnly` forbids
+    // the shorthand, since it emits code rather than erasing to nothing.
+    readonly value: string;
+
+    constructor(value: string) {
+      this.value = value;
+    }
+
+    toString(): string {
+      return this.value;
+    }
+  }
+
+  it('renders a class instance as its value rather than walking it', () => {
+    const changes = diffRecords(
+      { weightage: new Decimalish('40') },
+      { weightage: new Decimalish('50') },
+    );
+
+    expect(changes).toEqual([
+      { path: 'weightage', kind: 'CHANGED', before: '40', after: '50' },
+    ]);
+  });
+
+  it('produces a payload with no functions in it', () => {
+    const event = buildAuditEvent(ACTOR, 'goal.update', TARGET, {}, {
+      weightage: new Decimalish('40'),
+    });
+
+    // JSON.stringify drops functions silently, so the assertion is that the
+    // round trip is lossless -- which it is not if a class was walked.
+    expect(JSON.parse(JSON.stringify(event?.after))).toEqual({ weightage: '40' });
+  });
+
+  it('treats two instances holding the same value as unchanged', () => {
+    // Comparing by identity would report a change on every save that touched a
+    // decimal column and changed nothing.
+    expect(diffRecords({ w: new Decimalish('40') }, { w: new Decimalish('40') })).toEqual([]);
+  });
+
+  it('renders a bigint as a string', () => {
+    expect(diffRecords({ n: 1n }, { n: 2n })[0]).toEqual({
+      path: 'n',
+      kind: 'CHANGED',
+      before: '1',
+      after: '2',
+    });
+  });
+
+  it('still descends into genuinely plain objects', () => {
+    expect(paths({ a: { b: 1 } }, { a: { b: 2 } })).toEqual(['a.b']);
+  });
+
+  it('uses toJSON when the instance provides one', () => {
+    class Point {
+      toJSON() {
+        return { x: 1 };
+      }
+    }
+
+    expect(diffRecords({}, { p: new Point() })[0]?.after).toEqual({ x: 1 });
+  });
+});
+
+describe('diffRecords · an instance with no useful stringification', () => {
+  it('records its own data rather than the text "[object Object]"', () => {
+    class Bare {
+      readonly a: number;
+      constructor(a: number) {
+        this.a = a;
+      }
+    }
+
+    // String(new Bare(1)) is "[object Object]", which looks like a recorded
+    // value and carries none.
+    const changes = diffRecords({}, { thing: new Bare(1) });
+
+    expect(changes[0]?.after).toEqual({ a: 1 });
+    expect(JSON.stringify(changes)).not.toContain('[object Object]');
+  });
+
+  it('drops functions rather than letting them reach the database', () => {
+    class WithMethodField {
+      readonly a: number;
+      readonly fn: () => void;
+      constructor() {
+        this.a = 1;
+        this.fn = () => undefined;
+      }
+    }
+
+    expect(diffRecords({}, { thing: new WithMethodField() })[0]?.after).toEqual({ a: 1 });
+  });
+});

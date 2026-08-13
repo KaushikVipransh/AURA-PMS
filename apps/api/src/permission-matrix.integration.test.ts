@@ -70,6 +70,19 @@ const EXPECTED: Readonly<Record<string, Expectation>> = {
   },
   'GET /auth/session': { access: 'guarded' },
 
+  'GET /me': { access: 'guarded' },
+
+  'GET /cycles': { access: 'guarded' },
+  'POST /cycles': { access: 'guarded' },
+  'PATCH /cycles/:id': { access: 'guarded' },
+  'POST /cycles/:id/activate': { access: 'guarded' },
+  'POST /cycles/:id/close': { access: 'guarded' },
+
+  'GET /sheets/:cycleId': { access: 'guarded' },
+  'PUT /sheets/:cycleId': { access: 'guarded' },
+  'POST /sheets/:id/submit': { access: 'guarded' },
+  'POST /sheets/:id/check-in': { access: 'guarded' },
+
   'POST /users/invite': { access: 'guarded' },
   'GET /users/:id': { access: 'guarded' },
   'POST /users/:id/deactivate': { access: 'guarded' },
@@ -103,7 +116,7 @@ describe('the route surface is fully declared', () => {
   it('finds routes at all, so an empty enumeration cannot pass vacuously', () => {
     // Without this, a broken `listRoutes` would make every other assertion
     // here trivially true -- the classic way a matrix test stops testing.
-    expect(routes.length).toBeGreaterThanOrEqual(14);
+    expect(routes.length).toBeGreaterThanOrEqual(24);
   });
 
   it('covers every registered route', () => {
