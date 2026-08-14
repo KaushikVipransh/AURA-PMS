@@ -17,9 +17,11 @@ import cors from 'cors';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 
 import { authRoutes } from './auth/index.js';
+import { buildDocument } from './openapi.js';
 import { appraisalsRouter } from './routes/appraisals.js';
 import { authRouter } from './routes/auth.js';
 import { calibrationRouter } from './routes/calibration.js';
+import { commentsRouter } from './routes/comments.js';
 import { cyclesRouter, meRouter } from './routes/cycles.js';
 import {
   analyticsRouter,
@@ -66,6 +68,10 @@ export const ROUTER_MOUNTS = [
   { prefix: '/me', router: meRouter },
   { prefix: '/cycles', router: cyclesRouter },
   { prefix: '/sheets', router: sheetsRouter },
+  /* A comment has no meaning apart from the sheet it is about, so it is
+     mounted under one. `mergeParams` on the child is what lets it read
+     `:sheetId` back out of the mount path. */
+  { prefix: '/sheets/:sheetId/comments', router: commentsRouter },
   { prefix: '/teams', router: teamsRouter },
   { prefix: '/org-chart', router: orgChartRouter },
   { prefix: '/shared-goals', router: sharedGoalsRouter },
@@ -107,6 +113,23 @@ export function createApp(): Express {
     res.status(200).json({ status: 'ok' });
   });
 
+  /*
+   * The generated API document, and a reader for it (W4-21).
+   *
+   * Both are public. The document describes the shape of requests, not the
+   * data in them, and every endpoint it names is guarded by the same session
+   * check whether or not it is written down -- W3-09's matrix asserts that
+   * independently. Hiding the map does not lock the doors, and an unreachable
+   * reference is one people stop consulting.
+   */
+  app.get('/openapi.json', (_req: Request, res: Response) => {
+    res.status(200).json(buildDocument());
+  });
+
+  app.get('/docs', (_req: Request, res: Response) => {
+    res.status(200).type('html').send(SCALAR_PAGE);
+  });
+
   for (const mount of ROUTER_MOUNTS) {
     app.use(mount.prefix, mount.router);
   }
@@ -134,3 +157,23 @@ export function createApp(): Express {
 
   return app;
 }
+
+/**
+ * The Scalar reference, as a page that fetches the document.
+ *
+ * Written out rather than pulled from `@scalar/express-api-reference`, which
+ * would add a runtime dependency to serve twelve lines of HTML. The script is
+ * loaded from Scalar's CDN, so the page needs the network and the API does not.
+ */
+const SCALAR_PAGE = `<!doctype html>
+<html>
+  <head>
+    <title>AuraPMS API</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <script id="api-reference" data-url="/openapi.json"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>`;

@@ -40,6 +40,7 @@ model GoalSheet {
 
   goals     Goal[]
   revisions SheetRevision[]
+  comments  SheetComment[]
   appraisal Appraisal?
 
   @@unique([userId, cycleId])

@@ -274,6 +274,26 @@ describe('GET /analytics [W4-18]', () => {
     expect((response.body as { totalSheets: number }).totalSheets).toBe(10_000);
     expect((response.body as { totalGoals: number }).totalGoals).toBe(20_000);
     expect(elapsed).toBeLessThan(500);
+
+    /*
+     * The seeded rows are left in place, and that is a decision rather than an
+     * oversight — recorded here because the obvious-looking alternative is
+     * much worse.
+     *
+     * A cleanup was tried and reverted. Deleting the organization does not
+     * work at all: `AuditEvent.actor` is `onDelete: Restrict` on purpose
+     * (US-106 — a departing employee's history is what a disputed appraisal is
+     * settled from), so cascading through an admin who has audit rows is
+     * refused by the database. Deleting the 10,000 users and their sheets
+     * instead *does* work, and took the whole suite from six minutes to two
+     * and three quarter hours: Postgres checks the foreign keys pointing at
+     * each row one row at a time, and there are forty thousand of them.
+     *
+     * The database is a disposable Testcontainer destroyed at teardown, so the
+     * rows cost nothing after this file. If the leftovers are ever shown to
+     * cause a flake elsewhere, the fix is a set-based `DELETE ... USING` in one
+     * statement, not a Prisma cascade.
+     */
   }, 300_000);
 });
 

@@ -1447,7 +1447,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   Everything else in the payload is ignored, not trusted. Closes F-04.
   **Done when:** a test sends a payload mutating `title`, `target`, and `weightage` on a locked sheet and
   asserts none of them changed.
-- [ ] **`W4-12` · Discussion comments** · **Est** 1.5h · PRD US-602
+- [x] **`W4-12` · Discussion comments** · **Est** 1.5h · PRD US-602
 - [x] **`W4-13` · Shared goal create + cascade preview + commit** · **Est** 3h · PRD US-401, 402, 403
   **Do:** `POST /shared-goals/preview` returns the W2-07 plan; `POST /shared-goals` commits it atomically.
 
@@ -1617,9 +1617,51 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > the ordering property — timestamps descending — rather than the fixture's exact sequence, which would
   > break every time the fixture grows a step.
 
-- [ ] **`W4-21` · OpenAPI generation from Zod** · **Est** 2h
+- [x] **`W4-21` · OpenAPI generation from Zod** · **Est** 2h
   **Do:** `zod-openapi` over `packages/contracts` → `/openapi.json` + Scalar docs UI.
   **Done when:** every route appears in the document; a route missing a contract schema fails the build.
+
+  > **Note (W4-12, W4-21):** 41 integration tests, and Wave 4 is complete — **21 of 21**.
+  >
+  > **`SheetComment` carries its own `orgId`** rather than reaching through the sheet, so the W3-07 scope
+  > extension covers it automatically. `Appraisal` does not, and every query against it has to remember the
+  > join by hand; this model is the version of that decision that needs no remembering.
+  >
+  > **Two things a thread has to survive, and both are stored rather than derived.** Editing closes after a
+  > window, and the deadline is written onto the row at insert — not recomputed on read, because two places
+  > deriving "is this still editable" is two places that can disagree, and the disagreement would surface
+  > only in the argument the window exists to prevent. An edit does not extend the window, or a comment
+  > edited every fourteen minutes would stay editable forever. Deleting leaves a **tombstone**: the row keeps
+  > its place, its author and its timestamp and loses its words, because a thread that silently drops a
+  > message strands every reply below it.
+  >
+  > **Authorship is checked separately from permission, because they are different questions.**
+  > `COMMENT_ON_SHEET` answers "may you take part in this discussion", which the employee, their chain and HR
+  > all may — exactly US-602's visibility rule. None of them may put words in someone else's mouth. A test
+  > has the manager try to edit their report's comment and asserts 403.
+  >
+  > **W4-21's document is generated, and the gate is that it cannot go stale.** Every request body is the
+  > same `@aura/contracts` schema the route parses with, so the document cannot describe a payload the server
+  > would reject — a test reads `properties` out of the generated `/cycles` body and finds the fields nobody
+  > typed there. `openapi.integration.test.ts` enumerates the live router and fails the build on a route with
+  > no entry, on a stale entry for a route that no longer exists, and on a `POST`/`PUT`/`PATCH` that names no
+  > request schema. Routes left out are listed with a reason, the same shape as W3-09's matrix.
+  >
+  > **`/openapi.json` and `/docs` are public, deliberately.** The document describes the shape of requests,
+  > not the data in them, and every endpoint it names is guarded whether or not it is written down — which
+  > the permission matrix asserts independently, and which one of these tests re-checks alongside. Hiding the
+  > map does not lock the doors, and an unreachable reference is one people stop consulting.
+  >
+  > **A flake, and a fix that was worse than the problem — reverted.** One suite run failed a cross-org
+  > appraisal assertion after 73 seconds, and the 10,000-sheet analytics gate leaving 40,000 rows in a shared
+  > database looked like the cause. Two cleanups were tried and both are gone. Deleting the organization does
+  > not work at all: `AuditEvent.actor` is `onDelete: Restrict` by design (US-106), so cascading through an
+  > admin who has audit rows is refused by the database. Deleting the users and sheets instead *works* and
+  > took the suite **from six minutes to two and three quarter hours** — Postgres checks the foreign keys
+  > pointing at each row one row at a time, forty thousand times — and timed out two tests doing it. The rows
+  > stay; the container is disposable and destroyed at teardown. **The flake's cause is therefore unconfirmed
+  > and remains open**, recorded here rather than papered over; if leftovers are ever shown to be the cause,
+  > the fix is a set-based `DELETE ... USING` in one statement, not a Prisma cascade.
 
 *(Each W4 task's gate: `pnpm verify:integration`. Each is done when its endpoints pass integration tests
 covering the happy path, validation failure, permission denial, and cross-org isolation.)*

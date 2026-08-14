@@ -138,6 +138,51 @@ export const checkInRequestSchema = z.object({
   comment: longTextSchema.optional(),
 });
 
+/* ------------------------------------------------------------------ *
+ * Threaded discussion (PRD US-602)
+ * ------------------------------------------------------------------ */
+
+/**
+ * How long a comment stays editable.
+ *
+ * Declared here, in the contract, so the client can grey out the edit button
+ * on the same number the server enforces. The prototype had no discussion at
+ * all (F-12); email has no edit window either, which is half of why context
+ * was lost.
+ */
+export const COMMENT_EDIT_WINDOW_MINUTES = 15;
+
+export const createCommentRequestSchema = z.object({
+  body: longTextSchema,
+  /** Optionally scoped to one goal rather than to the sheet as a whole. */
+  goalId: idSchema.nullable().default(null),
+  /** The comment being replied to. Null starts a new thread. */
+  parentId: idSchema.nullable().default(null),
+});
+
+export const updateCommentRequestSchema = z.object({
+  body: longTextSchema,
+});
+
+export const commentSchema = z.object({
+  id: idSchema,
+  sheetId: idSchema,
+  goalId: idSchema.nullable(),
+  parentId: idSchema.nullable(),
+  authorId: idSchema,
+  authorName: z.string(),
+  /** Null once deleted: the tombstone stays, the words do not. */
+  body: z.string().nullable(),
+  deleted: z.boolean(),
+  editableUntil: z.iso.datetime({ offset: true }),
+  editedAt: z.iso.datetime({ offset: true }).nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+});
+
+export const listCommentsQuerySchema = z.object({
+  goalId: idSchema.optional(),
+});
+
 export const goalSchema = z.object({
   id: idSchema,
   sheetId: idSchema,
@@ -292,6 +337,11 @@ export type CascadePreviewResponse = z.infer<typeof cascadePreviewResponseSchema
 export type SharedGoal = z.infer<typeof sharedGoalSchema>;
 export type CreateSharedGoalResponse = z.infer<typeof createSharedGoalResponseSchema>;
 export type ListSharedGoalsQuery = z.infer<typeof listSharedGoalsQuerySchema>;
+
+export type CreateCommentRequest = z.infer<typeof createCommentRequestSchema>;
+export type UpdateCommentRequest = z.infer<typeof updateCommentRequestSchema>;
+export type Comment = z.infer<typeof commentSchema>;
+export type ListCommentsQuery = z.infer<typeof listCommentsQuerySchema>;
 
 export type GoalInput = z.infer<typeof goalInputSchema>;
 export type GoalSheetInput = z.infer<typeof goalSheetInputSchema>;

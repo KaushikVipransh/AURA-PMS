@@ -51,6 +51,14 @@ const EXPECTED: Readonly<Record<string, Expectation>> = {
     reason: 'Liveness probe. Reveals nothing and must work before anyone signs in.',
   },
 
+  'GET /openapi.json': {
+    access: 'public',
+    reason:
+      'Describes the shape of requests, not the data in them. Every endpoint it names is ' +
+      'guarded whether or not it is written down, which this file asserts independently.',
+  },
+  'GET /docs': { access: 'public', reason: 'Renders the document above; holds nothing itself.' },
+
   'POST /auth/signup': {
     access: 'public',
     reason: 'Creates the first account of a new organization; there is nobody to authenticate as yet.',
@@ -86,6 +94,11 @@ const EXPECTED: Readonly<Record<string, Expectation>> = {
   'POST /sheets/:id/return': { access: 'guarded' },
   'POST /sheets/:id/adjust': { access: 'guarded' },
   'GET /sheets/:id/revisions': { access: 'guarded' },
+
+  'GET /sheets/:sheetId/comments': { access: 'guarded' },
+  'POST /sheets/:sheetId/comments': { access: 'guarded' },
+  'PATCH /sheets/:sheetId/comments/:commentId': { access: 'guarded' },
+  'DELETE /sheets/:sheetId/comments/:commentId': { access: 'guarded' },
 
   'POST /users/invite': { access: 'guarded' },
   'GET /users/:id': { access: 'guarded' },
@@ -147,7 +160,7 @@ describe('the route surface is fully declared', () => {
   it('finds routes at all, so an empty enumeration cannot pass vacuously', () => {
     // Without this, a broken `listRoutes` would make every other assertion
     // here trivially true -- the classic way a matrix test stops testing.
-    expect(routes.length).toBeGreaterThanOrEqual(49);
+    expect(routes.length).toBeGreaterThanOrEqual(55);
   });
 
   it('covers every registered route', () => {

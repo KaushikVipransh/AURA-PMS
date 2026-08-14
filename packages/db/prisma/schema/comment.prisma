@@ -1,0 +1,49 @@
+/// A threaded discussion on a goal sheet (PRD US-602, PLAN.md F-12).
+///
+/// The prototype had nowhere to have this conversation, so it happened in
+/// email and the context was gone by the time anyone needed it — which is
+/// precisely when a rating is disputed six months later.
+///
+/// Carries `orgId` of its own rather than reaching through the sheet, so the
+/// W3-07 scope extension covers it automatically. `Appraisal` does not, and
+/// every query against it has to remember the join by hand; this model is the
+/// version of that decision that does not need remembering.
+model SheetComment {
+  id      String @id @default(cuid())
+  orgId   String
+  sheetId String
+
+  /// Optionally scoped to one goal, rather than to the sheet as a whole.
+  goalId String?
+
+  authorId String
+
+  /// The comment this replies to. Null for a top-level entry.
+  parentId String?
+
+  body String
+
+  /// When the edit window closes. Set on insert; the service refuses an edit
+  /// after it, so "immutable after a window" is a stored fact rather than a
+  /// calculation two callers could disagree about (US-602).
+  editableUntil DateTime
+
+  editedAt DateTime?
+
+  /// Soft delete. A deleted comment leaves a tombstone rather than a hole,
+  /// because a thread that silently loses a message reads as a thread that
+  /// never had it — and the replies below it stop making sense.
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sheet  GoalSheet      @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  author User           @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  parent SheetComment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies SheetComment[] @relation("CommentThread")
+
+  @@index([orgId, sheetId, createdAt])
+  @@index([sheetId, goalId])
+  @@map("sheet_comments")
+}
