@@ -25,6 +25,7 @@ import {
   approveSheet,
   returnSheet,
 } from '../services/approvals.js';
+import { reportingChain } from '../services/orgchart.js';
 import { SheetStateError, recordCheckIn, saveDraft, submitSheet } from '../services/sheets.js';
 import { auditActor } from '../services/users.js';
 import { parseBody } from '../validate.js';
@@ -65,6 +66,10 @@ function sendApprovalError(res: Response, error: ApprovalStateError): void {
  * The chain is what separates "a manager" from "*their* manager" — W2-06
  * grants approval on DIRECT_REPORT and INDIRECT_REPORT and refuses SAME_ORG,
  * so a manager from another team gets 403 rather than authority.
+ *
+ * The walk is one `WITH RECURSIVE` query (W4-04). It used to be a loop issuing
+ * a `findUnique` per level, which cost a round trip per rung of the ladder for
+ * an answer the database can produce in one.
  */
 async function loadSheetWithChain(req: AuthedRequest, sheetId: string) {
   const sheet = await req.db.goalSheet.findUnique({
@@ -76,28 +81,10 @@ async function loadSheetWithChain(req: AuthedRequest, sheetId: string) {
     return null;
   }
 
-  const chain: string[] = [];
-  const seen = new Set<string>();
-  let current = (
-    await req.db.user.findUnique({
-      where: { id: sheet.userId },
-      select: { managerId: true },
-    })
-  )?.managerId ?? null;
-
-  while (current !== null && !seen.has(current) && chain.length < 20) {
-    seen.add(current);
-    chain.push(current);
-    current =
-      (
-        await req.db.user.findUnique({
-          where: { id: current },
-          select: { managerId: true },
-        })
-      )?.managerId ?? null;
-  }
-
-  return { sheet, managerChainIds: chain };
+  return {
+    sheet,
+    managerChainIds: await reportingChain(req.db, req.actor.orgId, sheet.userId),
+  };
 }
 
 /** Load a cycle in the shape `isActionAllowed` expects. */

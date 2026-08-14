@@ -1,4 +1,4 @@
-import { MAX_GOALS_PER_SHEET, MIN_GOALS_PER_SHEET } from '@aura/core';
+import { CASCADE_SKIP_REASONS, MAX_GOALS_PER_SHEET, MIN_GOALS_PER_SHEET } from '@aura/core';
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 
@@ -7,11 +7,12 @@ import {
   activateCycleRequestSchema,
   adjustWeightageRequestSchema,
   apiErrorSchema,
-  cascadePlanSchema,
-  cascadeRequestSchema,
+  cascadePreviewResponseSchema,
+  cascadeSkipReasonSchema,
   checkInRequestSchema,
   createCycleRequestSchema,
   createSharedGoalRequestSchema,
+  createTeamRequestSchema,
   emailSchema,
   exportRequestSchema,
   forgotPasswordRequestSchema,
@@ -480,53 +481,103 @@ describe('goal sheet · the mutations a check-in may make', () => {
   });
 });
 
-describe('shared goals and appraisal', () => {
-  it('takes a shared goal owner by id, never by name', () => {
-    const request = {
-      cycleId: ID,
-      thrustArea: 'BUSINESS_GROWTH' as const,
-      title: 'Grow ARR',
-      uom: 'NUMERIC' as const,
-      direction: 'HIGHER_IS_BETTER' as const,
-      target: '1000000',
-      weightage: 20,
-      ownerUserId: OTHER_ID,
-    };
+describe('teams', () => {
+  it('defaults a new team to no lead and no parent', () => {
+    expect(createTeamRequestSchema.parse({ name: 'Platform' })).toEqual({
+      name: 'Platform',
+      leadId: null,
+      parentTeamId: null,
+    });
+  });
 
-    expect(createSharedGoalRequestSchema.parse(request)).toEqual(request);
+  it('rejects a lead given as a name', () => {
+    expect(createTeamRequestSchema.safeParse({ name: 'Platform', leadId: 'Marcus' }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe('shared goals and appraisal', () => {
+  const sharedGoal = {
+    cycleId: ID,
+    ownerUserId: OTHER_ID,
+    thrustArea: 'BUSINESS_GROWTH' as const,
+    title: 'Grow ARR',
+    uom: 'NUMERIC' as const,
+    direction: 'HIGHER_IS_BETTER' as const,
+    target: '1000000',
+    defaultWeightage: 20,
+    audience: { kind: 'TEAM' as const, teamId: ID, includeSubTeams: false },
+  };
+
+  it('takes a shared goal owner by id, never by name', () => {
+    expect(createSharedGoalRequestSchema.parse(sharedGoal)).toEqual(sharedGoal);
   });
 
   it('rejects an owner given as a display name', () => {
     expect(
+      createSharedGoalRequestSchema.safeParse({ ...sharedGoal, ownerUserId: 'Marcus Chen' })
+        .success,
+    ).toBe(false);
+  });
+
+  it('has no "everyone" audience to choose', () => {
+    // The prototype resolved its audience by scanning every record it could
+    // find (PLAN.md F-05). The absence of this option is the fix; a test that
+    // only checked the three valid kinds would not notice a fourth appearing.
+    expect(
       createSharedGoalRequestSchema.safeParse({
-        cycleId: ID,
-        thrustArea: 'BUSINESS_GROWTH',
-        title: 'Grow ARR',
-        uom: 'NUMERIC',
-        direction: 'HIGHER_IS_BETTER',
-        target: '1000000',
-        weightage: 20,
-        ownerUserId: 'Marcus Chen',
+        ...sharedGoal,
+        audience: { kind: 'EVERYONE' },
       }).success,
     ).toBe(false);
   });
 
-  it('defaults a cascade to planning rather than performing', () => {
-    expect(cascadeRequestSchema.parse({ recipientUserIds: [ID] })).toEqual({
-      recipientUserIds: [ID],
-      dryRun: true,
-    });
+  it('accepts each of the three audiences and nothing else', () => {
+    for (const audience of [
+      { kind: 'TEAM' as const, teamId: ID, includeSubTeams: true },
+      { kind: 'ROLE' as const, role: 'EMPLOYEE' as const },
+      { kind: 'USERS' as const, userIds: [ID, OTHER_ID] },
+    ]) {
+      expect(createSharedGoalRequestSchema.safeParse({ ...sharedGoal, audience }).success).toBe(
+        true,
+      );
+    }
   });
 
-  it('round-trips a cascade plan with its skip reasons', () => {
-    const plan = {
-      sharedGoalId: ID,
+  it('keeps sub-teams out of a team cascade unless asked', () => {
+    const parsed = createSharedGoalRequestSchema.parse({
+      ...sharedGoal,
+      audience: { kind: 'TEAM', teamId: ID },
+    });
+
+    expect(parsed.audience).toEqual({ kind: 'TEAM', teamId: ID, includeSubTeams: false });
+  });
+
+  it('draws its skip reasons from @aura/core rather than restating them', () => {
+    // The schema this replaced held its own copy of the list, so a reason
+    // added to core would have been rejected here while the server produced it.
+    expect(cascadeSkipReasonSchema.parse('SHEET_NOT_EDITABLE')).toBe('SHEET_NOT_EDITABLE');
+    expect(cascadeSkipReasonSchema.parse('NOT_IN_YOUR_LINE')).toBe('NOT_IN_YOUR_LINE');
+    expect(cascadeSkipReasonSchema.options).toEqual([...CASCADE_SKIP_REASONS]);
+  });
+
+  it('round-trips a cascade preview with named people on both sides', () => {
+    const preview = {
       weightage: 20,
-      willReceive: [OTHER_ID],
-      skipped: [{ userId: ID, reason: 'IS_OWNER' as const, detail: 'Owns this goal already.' }],
+      willReceive: [{ userId: OTHER_ID, name: 'Priya', email: 'priya@example.com' }],
+      skipped: [
+        {
+          userId: ID,
+          name: 'Marcus',
+          email: 'marcus@example.com',
+          reason: 'IS_OWNER' as const,
+          detail: 'Owns this goal already.',
+        },
+      ],
     };
 
-    expect(cascadePlanSchema.parse(plan)).toEqual(plan);
+    expect(cascadePreviewResponseSchema.parse(preview)).toEqual(preview);
   });
 
   it('requires a justification on a manager rating', () => {

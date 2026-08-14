@@ -14,6 +14,7 @@ import { Router, type Response } from 'express';
 
 import { authenticated, type AuthedRequest } from '../auth/authenticated.js';
 import { requireAuth } from '../auth/index.js';
+import { reportingChain } from '../services/orgchart.js';
 import { auditActor, deactivateUser, inviteUser } from '../services/users.js';
 import { parseBody } from '../validate.js';
 
@@ -71,34 +72,16 @@ async function loadSubject(req: AuthedRequest, id: string) {
     return null;
   }
 
-  return { user, managerChainIds: await managerChain(req, user.managerId) };
-}
-
-/**
- * Walk the reporting line upwards.
- *
- * Bounded, because a cycle in the data would otherwise hang the request. The
- * schema's composite foreign key prevents a cross-org manager but nothing
- * prevents A→B→A, so the loop refuses to trust that it terminates.
- */
-async function managerChain(req: AuthedRequest, managerId: string | null): Promise<string[]> {
-  const chain: string[] = [];
-  const seen = new Set<string>();
-  let current = managerId;
-
-  while (current !== null && !seen.has(current) && chain.length < 20) {
-    seen.add(current);
-    chain.push(current);
-
-    const manager = await req.db.user.findUnique({
-      where: { id: current },
-      select: { managerId: true },
-    });
-
-    current = manager?.managerId ?? null;
-  }
-
-  return chain;
+  /*
+   * One `WITH RECURSIVE` query rather than a `findUnique` per rung (W4-04).
+   * The bound and the cycle guard did not go away -- they moved into the SQL,
+   * where `A -> B -> A` would otherwise not merely hang a request but fail to
+   * terminate at all.
+   */
+  return {
+    user,
+    managerChainIds: await reportingChain(req.db, req.actor.orgId, user.id),
+  };
 }
 
 /** Ask the W2-06 table. One question, one answer, one place it is decided. */

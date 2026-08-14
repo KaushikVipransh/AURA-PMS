@@ -82,6 +82,7 @@ export const POLICY_ACTIONS = [
   'BULK_IMPORT_USERS',
   'DEACTIVATE_USER',
   'VIEW_USER',
+  'MANAGE_TEAM',
   'CREATE_CYCLE',
   'CONFIGURE_CYCLE',
   // Goal setting (PRD E3)
@@ -167,6 +168,16 @@ export const POLICY: Readonly<Record<PolicyAction, ActionPolicy>> = {
     HR_ADMIN: ANYONE_IN_ORG,
     ORG_ADMIN: ANYONE_IN_ORG,
   },
+
+  /**
+   * US-1003 — create and reshape teams.
+   *
+   * Org-wide rather than chain-scoped, and deliberately not granted to
+   * `MANAGER`. A team is the audience a shared goal is cascaded to (US-401), so
+   * whoever can invent a team can invent a set of people to push work onto. That
+   * is an org-design decision, not a line-management one.
+   */
+  MANAGE_TEAM: { HR_ADMIN: ORG_WIDE, ORG_ADMIN: ORG_WIDE },
 
   /** US-201, US-202 — create a cycle with named phases and dates. */
   CREATE_CYCLE: { HR_ADMIN: ORG_WIDE, ORG_ADMIN: ORG_WIDE },

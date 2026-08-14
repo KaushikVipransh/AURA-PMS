@@ -93,6 +93,7 @@ const EXPECTED: Readonly<Record<PolicyAction, readonly Grant[]>> = {
   BULK_IMPORT_USERS: adminOrgWide(),
   DEACTIVATE_USER: adminAnyoneButSelf(),
   VIEW_USER: chainVisibility(),
+  MANAGE_TEAM: adminOrgWide(),
   CREATE_CYCLE: adminOrgWide(),
   CONFIGURE_CYCLE: adminOrgWide(),
 

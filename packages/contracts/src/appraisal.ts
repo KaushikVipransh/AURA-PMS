@@ -4,60 +4,21 @@
 
 import { z } from 'zod';
 
-import {
-  goalDirectionSchema,
-  idSchema,
-  longTextSchema,
-  shortTextSchema,
-  thrustAreaSchema,
-  uomSchema,
-  weightageSchema,
-} from './common.js';
+import { idSchema, longTextSchema } from './common.js';
 
-/** US-401 — a departmental KPI pushed to a team. */
-export const createSharedGoalRequestSchema = z.object({
-  cycleId: idSchema,
-  thrustArea: thrustAreaSchema,
-  title: shortTextSchema,
-  uom: uomSchema,
-  direction: goalDirectionSchema,
-  target: shortTextSchema,
-  weightage: weightageSchema,
-  /** Owner by id. The prototype matched by display name (PLAN.md F-05). */
-  ownerUserId: idSchema,
-});
-
-export const cascadeRequestSchema = z.object({
-  recipientUserIds: z.array(idSchema).min(1).max(500),
-  /** Plan only. The plan is shown, then applied by a second call. */
-  dryRun: z.boolean().default(true),
-});
-
-/**
- * The plan, not the outcome (US-402).
+/*
+ * The shared-goal and cascade contracts used to live here, sketched in W1
+ * before there was an endpoint behind them. They have moved to `goal.js`,
+ * where W4-13 implements them.
  *
- * Every recipient appears in exactly one of the two lists, so a manager can see
- * who will miss out and why before anything is written.
+ * The sketch is gone rather than kept alongside, and the reason is worth
+ * recording: it declared its own inline copy of the cascade skip reasons, so
+ * `SHEET_NOT_EDITABLE` and `NOT_IN_YOUR_LINE` could be added to `@aura/core`
+ * and this file would still have compiled, still have passed its tests, and
+ * still have rejected a response the server can now legitimately produce. Two
+ * lists of the same thing is the shape of F-10, and the replacement builds its
+ * enum from `CASCADE_SKIP_REASONS` so there is only one.
  */
-export const cascadePlanSchema = z.object({
-  sharedGoalId: idSchema,
-  weightage: z.number(),
-  willReceive: z.array(idSchema),
-  skipped: z.array(
-    z.object({
-      userId: idSchema,
-      reason: z.enum([
-        'DUPLICATE_RECIPIENT',
-        'IS_OWNER',
-        'ALREADY_HAS_GOAL',
-        'INVALID_WEIGHTAGE',
-        'WOULD_EXCEED_GOAL_LIMIT',
-        'WOULD_EXCEED_WEIGHTAGE',
-      ]),
-      detail: z.string(),
-    }),
-  ),
-});
 
 /** US-701 — the self-appraisal, one entry per goal plus an overall note. */
 export const selfAppraisalRequestSchema = z.object({
@@ -146,9 +107,6 @@ export const ratingDistributionSchema = z.object({
   total: z.int().min(0),
 });
 
-export type CreateSharedGoalRequest = z.infer<typeof createSharedGoalRequestSchema>;
-export type CascadeRequest = z.infer<typeof cascadeRequestSchema>;
-export type CascadePlanResponse = z.infer<typeof cascadePlanSchema>;
 export type SelfAppraisalRequest = z.infer<typeof selfAppraisalRequestSchema>;
 export type ManagerRatingRequest = z.infer<typeof managerRatingRequestSchema>;
 export type CalibrationAdjustmentRequest = z.infer<typeof calibrationAdjustmentRequestSchema>;

@@ -42,12 +42,38 @@ export type RecipientGoal = {
 export type CascadeRecipient = {
   readonly userId: string;
   readonly goals: readonly RecipientGoal[];
+  /**
+   * Whether their sheet can still take a new goal.
+   *
+   * Added in W4-13, when the endpoint that consumes this planner needed an
+   * answer the planner could not give. A sheet that is already approved is
+   * locked, and a cascade that appended a goal to it would move the target
+   * after the agreement — the same class of mistake as F-04's check-in route
+   * writing over a locked sheet.
+   *
+   * Optional, defaulting to editable, so a caller that has no sheets to reason
+   * about (a pure "who would receive this" question) is unaffected.
+   */
+  readonly sheetIsEditable?: boolean;
 };
 
+/**
+ * Every reason a cascade can pass someone over.
+ *
+ * `NOT_IN_YOUR_LINE` is the one member `planCascade` never emits, and a test
+ * asserts as much. Reach is an authorisation question, and answering it needs
+ * an actor and their roles — neither of which this planner takes, and neither
+ * of which it should, because a function that decided both *who has room* and
+ * *who you are allowed to ask* would be two rules in one place. The caller
+ * applies W2-06 and merges its refusals into the same list, so a manager reads
+ * one explanation per person rather than two lists to reconcile.
+ */
 export const CASCADE_SKIP_REASONS = [
   'DUPLICATE_RECIPIENT',
   'IS_OWNER',
+  'NOT_IN_YOUR_LINE',
   'ALREADY_HAS_GOAL',
+  'SHEET_NOT_EDITABLE',
   'INVALID_WEIGHTAGE',
   'WOULD_EXCEED_GOAL_LIMIT',
   'WOULD_EXCEED_WEIGHTAGE',
@@ -118,9 +144,10 @@ export class InvalidCascadeError extends Error {
  *   1. Already considered — the same recipient listed twice.
  *   2. The owner, who holds the primary instance already.
  *   3. Already has this goal, so a second copy would be a duplicate.
- *   4. Has a weightage on their sheet that cannot be read.
- *   5. Already at the goal limit.
- *   6. Would go over 100% weightage.
+ *   4. Their sheet is locked, so nothing can be added to it at all.
+ *   5. Has a weightage on their sheet that cannot be read.
+ *   6. Already at the goal limit.
+ *   7. Would go over 100% weightage.
  *
  * The weightage headroom uses the same total and tolerance as
  * `validateWeightages` (W2-02), so a sheet this planner accepts is a sheet that
@@ -172,6 +199,18 @@ export function planCascade(
 
     if (recipient.goals.some((existing) => existing.sharedGoalId === goal.id)) {
       skip(recipient.userId, 'ALREADY_HAS_GOAL', 'Already has this goal on their sheet.');
+      continue;
+    }
+
+    /* Checked after "already has it" on purpose: someone whose locked sheet
+       already carries this goal is not blocked by the lock, and telling them
+       so would send the manager looking for a problem that is not there. */
+    if (recipient.sheetIsEditable === false) {
+      skip(
+        recipient.userId,
+        'SHEET_NOT_EDITABLE',
+        'Their goal sheet is approved and locked, so nothing can be added to it.',
+      );
       continue;
     }
 

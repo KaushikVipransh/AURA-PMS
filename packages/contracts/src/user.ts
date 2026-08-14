@@ -107,6 +107,68 @@ export const importUsersResponseSchema = z.object({
   ),
 });
 
+/* ------------------------------------------------------------------ *
+ * Teams and the org chart (PRD US-105, US-1003)
+ * ------------------------------------------------------------------ */
+
+export const createTeamRequestSchema = z.object({
+  name: shortTextSchema,
+  /** The team's lead. Null while a team is being stood up. */
+  leadId: idSchema.nullable().default(null),
+  /** Teams nest, so a rollup can be asked of a division as well as a squad. */
+  parentTeamId: idSchema.nullable().default(null),
+});
+
+export const teamSchema = z.object({
+  id: idSchema,
+  orgId: idSchema,
+  name: z.string(),
+  leadId: idSchema.nullable(),
+  parentTeamId: idSchema.nullable(),
+  memberCount: z.int().min(0),
+});
+
+/**
+ * One person in the reporting tree, with their distance from its root.
+ *
+ * `depth` rather than a nested `children` array: a flat list with a depth is
+ * what a recursive SQL query naturally produces, and nesting it server-side
+ * would mean choosing a shape before knowing whether the caller wants a tree,
+ * a table, or a breadcrumb. The client can nest it in one pass if it wants to.
+ */
+export const orgChartNodeSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  email: z.string(),
+  managerId: idSchema.nullable(),
+  teamId: idSchema.nullable(),
+  status: userStatusSchema,
+  depth: z.int().min(0),
+});
+
+export const orgChartQuerySchema = z.object({
+  /** Defaults to the caller, so "my org chart" needs no parameters. */
+  rootId: idSchema.optional(),
+});
+
+export const orgChartResponseSchema = z.object({
+  rootId: idSchema,
+  nodes: z.array(orgChartNodeSchema),
+});
+
+export const reportingChainResponseSchema = z.object({
+  userId: idSchema,
+  /** Nearest manager first, ending at the top of the chain. */
+  chain: z.array(orgChartNodeSchema),
+});
+
+export type CreateTeamRequest = z.infer<typeof createTeamRequestSchema>;
+export type Team = z.infer<typeof teamSchema>;
+export type OrgChartNode = z.infer<typeof orgChartNodeSchema>;
+export type OrgChartQuery = z.infer<typeof orgChartQuerySchema>;
+export type OrgChartResponse = z.infer<typeof orgChartResponseSchema>;
+export type ReportingChainResponse = z.infer<typeof reportingChainResponseSchema>;
+
 export type InviteUserRequest = z.infer<typeof inviteUserRequestSchema>;
 export type UpdateUserRequest = z.infer<typeof updateUserRequestSchema>;
 export type DeactivateUserRequest = z.infer<typeof deactivateUserRequestSchema>;

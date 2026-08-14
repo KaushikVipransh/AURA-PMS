@@ -202,6 +202,46 @@ describe('planCascade · people who should not receive it', () => {
   });
 });
 
+describe('planCascade · a locked sheet takes nothing', () => {
+  it('skips a recipient whose sheet is no longer editable', () => {
+    const plan = planCascade(GOAL, [{ ...recipient('priya', 30), sheetIsEditable: false }]);
+
+    expect(plan.willReceive).toEqual([]);
+    expect(plan.skipped[0]).toMatchObject({ userId: 'priya', reason: 'SHEET_NOT_EDITABLE' });
+  });
+
+  it('plans for a recipient whose sheet is explicitly editable', () => {
+    const plan = planCascade(GOAL, [{ ...recipient('priya', 30), sheetIsEditable: true }]);
+
+    expect(plan.willReceive).toEqual(['priya']);
+  });
+
+  it('treats an unstated sheet state as editable', () => {
+    // The field is optional so that a caller asking a pure "who would receive
+    // this" question -- with no sheets in hand at all -- is unaffected by it.
+    expect(planCascade(GOAL, [recipient('priya', 30)]).willReceive).toEqual(['priya']);
+  });
+
+  it('reports the duplicate copy rather than the lock when both apply', () => {
+    // Someone whose locked sheet already carries this goal is not blocked by
+    // the lock, and saying so sends the manager after a problem that is not
+    // there.
+    const plan = planCascade(GOAL, [{ ...holder('priya'), sheetIsEditable: false }]);
+
+    expect(plan.skipped[0]?.reason).toBe('ALREADY_HAS_GOAL');
+  });
+
+  it('reports the lock before an unreadable weightage', () => {
+    // A locked sheet cannot take the goal whatever its arithmetic says, so
+    // the headroom is not a question worth asking.
+    const plan = planCascade(GOAL, [
+      { ...recipient('priya', 'about a third'), sheetIsEditable: false },
+    ]);
+
+    expect(plan.skipped[0]?.reason).toBe('SHEET_NOT_EDITABLE');
+  });
+});
+
 describe('planCascade · F-05 regression: ownership is an id, never a name', () => {
   it('does not skip a namesake of the owner', () => {
     // The prototype compared display-name strings. Two people called the same
@@ -269,6 +309,24 @@ describe('planCascade · it plans, it does not act', () => {
     expect([...plan.willReceive, ...plan.skipped.map((entry) => entry.userId)].sort()).toEqual(
       recipients.map((entry) => entry.userId).sort(),
     );
+  });
+
+  it('never decides who you are allowed to cascade to', () => {
+    /*
+     * `NOT_IN_YOUR_LINE` is vocabulary this planner defines and deliberately
+     * does not use: reach needs an actor and their roles, and a function that
+     * decided both who has room and who you may ask would be two rules in one
+     * place. The caller applies W2-06 and merges its refusals into this list.
+     */
+    const plan = planCascade(GOAL, [
+      recipient('marcus', 10),
+      holder('dana'),
+      recipient('ravi', 100),
+      { ...recipient('kim', 30), sheetIsEditable: false },
+      recipient('sam', 'unknown'),
+    ]);
+
+    expect(plan.skipped.map((entry) => entry.reason)).not.toContain('NOT_IN_YOUR_LINE');
   });
 
   it('gives every refusal a reason drawn from the declared set', () => {

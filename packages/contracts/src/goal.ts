@@ -3,6 +3,7 @@
  */
 
 import {
+  CASCADE_SKIP_REASONS,
   MAX_GOALS_PER_SHEET,
   MIN_GOALS_PER_SHEET,
   validateWeightages,
@@ -16,6 +17,7 @@ import {
   idSchema,
   instantSchema,
   longTextSchema,
+  roleSchema,
   sheetStatusSchema,
   shortTextSchema,
   thrustAreaSchema,
@@ -185,6 +187,111 @@ export const listSheetsQuerySchema = z.object({
   awaitingMyAction: z.boolean().default(false),
   dueBefore: instantSchema.optional(),
 });
+
+/* ------------------------------------------------------------------ *
+ * Shared goals and the cascade (PRD US-401, US-402, US-403)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Who a shared goal is pushed to.
+ *
+ * A closed set of three, and **there is no "everyone" option**. The prototype
+ * resolved its audience by scanning every record in the database and matching
+ * on a lowercased display name (PLAN.md F-05), which made "who receives this"
+ * unanswerable before the fact and unauditable after it. A named team, a named
+ * role, or a listed set of people are all things a manager can be shown and
+ * asked to confirm.
+ */
+export const sharedGoalAudienceSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('TEAM'),
+    teamId: idSchema,
+    /** Nested teams are opt-in: a division-wide push should be deliberate. */
+    includeSubTeams: z.boolean().default(false),
+  }),
+  z.object({ kind: z.literal('ROLE'), role: roleSchema }),
+  z.object({ kind: z.literal('USERS'), userIds: z.array(idSchema).min(1).max(500) }),
+]);
+
+/**
+ * A shared goal, as it is proposed.
+ *
+ * `direction` is required here for the same reason it is required on a personal
+ * goal, and the stakes are higher: a cascaded goal's direction is inherited by
+ * every instance, so one wrong guess scores a whole department backwards (F-06).
+ */
+export const createSharedGoalRequestSchema = z.object({
+  cycleId: idSchema,
+  /** By id. A display name cannot be stored in a `userId` column (F-05). */
+  ownerUserId: idSchema,
+  title: shortTextSchema,
+  thrustArea: thrustAreaSchema,
+  uom: uomSchema,
+  direction: goalDirectionSchema,
+  target: shortTextSchema,
+  defaultWeightage: weightageSchema,
+  audience: sharedGoalAudienceSchema,
+});
+
+/** Previewing takes the same body as committing: you preview what you will do. */
+export const cascadePreviewRequestSchema = createSharedGoalRequestSchema;
+
+export const cascadeSkipReasonSchema = z.enum(CASCADE_SKIP_REASONS);
+
+const cascadePersonSchema = z.object({
+  userId: idSchema,
+  name: z.string(),
+  email: z.string(),
+});
+
+/**
+ * What a cascade would do, before it does it (US-402).
+ *
+ * Both halves are named people rather than counts. "18 recipients, 4 skipped"
+ * is not a thing a manager can act on; "Priya is at 100% already" is.
+ */
+export const cascadePreviewResponseSchema = z.object({
+  weightage: z.number(),
+  willReceive: z.array(cascadePersonSchema),
+  skipped: z.array(
+    cascadePersonSchema.extend({
+      reason: cascadeSkipReasonSchema,
+      detail: z.string(),
+    }),
+  ),
+});
+
+export const sharedGoalSchema = z.object({
+  id: idSchema,
+  orgId: idSchema,
+  cycleId: idSchema,
+  ownerUserId: idSchema,
+  createdById: idSchema,
+  title: z.string(),
+  thrustArea: thrustAreaSchema,
+  uom: uomSchema,
+  direction: goalDirectionSchema,
+  target: z.string(),
+  defaultWeightage: z.number(),
+  instanceCount: z.int().min(0),
+});
+
+export const createSharedGoalResponseSchema = z.object({
+  sharedGoal: sharedGoalSchema,
+  cascade: cascadePreviewResponseSchema,
+});
+
+export const listSharedGoalsQuerySchema = z.object({
+  cycleId: idSchema,
+});
+
+export type SharedGoalAudience = z.infer<typeof sharedGoalAudienceSchema>;
+export type CreateSharedGoalRequest = z.infer<typeof createSharedGoalRequestSchema>;
+export type CascadePreviewRequest = z.infer<typeof cascadePreviewRequestSchema>;
+export type CascadePreviewResponse = z.infer<typeof cascadePreviewResponseSchema>;
+export type SharedGoal = z.infer<typeof sharedGoalSchema>;
+export type CreateSharedGoalResponse = z.infer<typeof createSharedGoalResponseSchema>;
+export type ListSharedGoalsQuery = z.infer<typeof listSharedGoalsQuerySchema>;
 
 export type GoalInput = z.infer<typeof goalInputSchema>;
 export type GoalSheetInput = z.infer<typeof goalSheetInputSchema>;

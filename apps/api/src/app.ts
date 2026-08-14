@@ -19,7 +19,9 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import { authRoutes } from './auth/index.js';
 import { authRouter } from './routes/auth.js';
 import { cyclesRouter, meRouter } from './routes/cycles.js';
+import { sharedGoalsRouter } from './routes/sharedGoals.js';
 import { sheetsRouter } from './routes/sheets.js';
+import { orgChartRouter, teamsRouter } from './routes/teams.js';
 import { usersRouter } from './routes/users.js';
 import { authRateLimit, securityHeaders } from './security.js';
 
@@ -56,6 +58,9 @@ export const ROUTER_MOUNTS = [
   { prefix: '/me', router: meRouter },
   { prefix: '/cycles', router: cyclesRouter },
   { prefix: '/sheets', router: sheetsRouter },
+  { prefix: '/teams', router: teamsRouter },
+  { prefix: '/org-chart', router: orgChartRouter },
+  { prefix: '/shared-goals', router: sharedGoalsRouter },
 ] as const;
 
 export function createApp(): Express {

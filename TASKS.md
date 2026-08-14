@@ -1389,7 +1389,7 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > prevent, one level up.
 
 - [x] **`W4-03` · `GET /me` and profile update** · **Est** 1h · PRD US-102
-- [ ] **`W4-04` · Team & org-chart endpoints** · **Est** 2h · PRD US-105, US-1003
+- [x] **`W4-04` · Team & org-chart endpoints** · **Est** 2h · PRD US-105, US-1003
   **Do:** Includes the recursive reporting-chain query as a `WITH RECURSIVE` CTE.
 - [x] **`W4-05` · Review cycle CRUD** · **Est** 2.5h · PRD US-201, 202, 203
   **Do:** Validates non-overlapping phases via W2-03 and the single-active-cycle constraint from W1-05.
@@ -1448,8 +1448,65 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   **Done when:** a test sends a payload mutating `title`, `target`, and `weightage` on a locked sheet and
   asserts none of them changed.
 - [ ] **`W4-12` · Discussion comments** · **Est** 1.5h · PRD US-602
-- [ ] **`W4-13` · Shared goal create + cascade preview + commit** · **Est** 3h · PRD US-401, 402, 403
+- [x] **`W4-13` · Shared goal create + cascade preview + commit** · **Est** 3h · PRD US-401, 402, 403
   **Do:** `POST /shared-goals/preview` returns the W2-07 plan; `POST /shared-goals` commits it atomically.
+
+  > **Note (W4-04, W4-13):** the org chart and the cascade shipped together because the cascade needs the
+  > chart: "may I push this goal onto your sheet" is a question about the reporting line, and W2-06 answers
+  > it only when handed a real one.
+  >
+  > **Three `WITH RECURSIVE` CTEs replace three hand-rolled loops.** `reportingChain`, `reportingSubtree` and
+  > `descendantTeamIds` each walk a self-relation in one query. The loops they replace issued a `findUnique`
+  > per rung — a five-deep chain cost five round trips — and two separate copies of that loop existed, in
+  > `routes/sheets.ts` and `routes/users.ts`. Both now call the same function.
+  >
+  > **Raw SQL is not covered by the org-scope extension, and the fix is stated rather than assumed.** The
+  > extension intercepts Prisma's model operations; `$queryRaw` goes past it to the driver. So `orgId` is a
+  > required parameter of every function in `services/orgchart.ts` and appears in the `WHERE` of **both** the
+  > anchor and the recursive term. Filtering only the anchor would let a walk step through a manager in
+  > another organization and out the other side — F-02 with extra steps. Only ids come back; the rows are
+  > fetched through the scoped client, so everything a client actually reads is still filtered by the
+  > pipeline that cannot forget.
+  >
+  > **A recursive CTE over cyclic data does not terminate**, and `A → B → A` is representable — the composite
+  > foreign key stops a cross-org manager, not a loop inside one org. Each walk carries a visited-set guard
+  > and a depth cap, and a test builds the cycle and asserts the query returns.
+  >
+  > **`planCascade` gained one fact and deliberately refused another.** It gained `sheetIsEditable`, because a
+  > cascade appending a goal to an approved sheet moves the target after the agreement — the same class of
+  > mistake as F-04. It refused reach: `NOT_IN_YOUR_LINE` is vocabulary the planner defines and never emits,
+  > because deciding *who has room* and *who you may ask* in one function is two rules in one place. The
+  > service applies W2-06 per recipient and merges the refusals, so a manager reads one explanation per
+  > person; a core test asserts the planner never emits that reason.
+  >
+  > **Preview and commit call the same function.** `resolvePlan` is the only implementation of "who would
+  > receive this", and a test previews, commits, and asserts the two answers match person for person. A
+  > preview computed by different arithmetic would be worse than none: it would be a promise the system does
+  > not keep, which is precisely how the prototype's cascade behaved — it discovered who could not take a
+  > goal by failing partway through (F-05).
+  >
+  > **The owner's feasibility is decided by `planCascade` itself**, called with an owner id no user can hold,
+  > so the goal limit, the weightage headroom and the lock all apply to the owner on the terms they apply to
+  > everyone else. A shared goal whose owner has no room is refused outright rather than created ownerless:
+  > `isPrimaryOwner` is what makes "only the owner edits actuals" enforceable (US-403), and a shared goal with
+  > no primary instance is a rule with nothing to point at. A test asserts the `SharedGoal` row inserted
+  > before that check is rolled back.
+  >
+  > **A contract sketch from W1 was deleted, not left alongside.** `appraisal.ts` held an older
+  > `createSharedGoalRequestSchema` whose skip-reason enum was an inline copy of `CASCADE_SKIP_REASONS`. Two
+  > new reasons could be added to `@aura/core` and that file would still have compiled, still have passed its
+  > tests, and still have rejected a response the server can now legitimately produce. Two lists of one thing
+  > is the shape of F-10; the replacement builds its enum from core's array, and a test asserts the two are
+  > equal.
+  >
+  > **A test that lied about what it checked, caught in review.** The first draft of "refuses an employee"
+  > sent the *administrator's* cookie and asserted on an unrelated 400. It would have passed forever while
+  > testing nothing. Fixed by adding `memberWithSession`, which creates a real password account and a real
+  > session, so the permission tests exercise the permission.
+  >
+  > **`MANAGE_TEAM` is a new W2-06 action, granted to administrators and not to managers.** A team is the
+  > audience a shared goal is cascaded to, so whoever can invent a team can invent a set of people to push
+  > work onto. That is an org-design decision rather than a line-management one.
 - [x] **`W4-14` · Sheet revision history + diff** · **Est** 2h · PRD US-1103
 
   > **Note (W4-08, W4-09, W4-10, W4-14):** 16 tests. Approve, return and adjust each snapshot the sheet
