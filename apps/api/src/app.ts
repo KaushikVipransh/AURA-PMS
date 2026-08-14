@@ -21,6 +21,12 @@ import { appraisalsRouter } from './routes/appraisals.js';
 import { authRouter } from './routes/auth.js';
 import { calibrationRouter } from './routes/calibration.js';
 import { cyclesRouter, meRouter } from './routes/cycles.js';
+import {
+  analyticsRouter,
+  auditRouter,
+  complianceRouter,
+  escalationsRouter,
+} from './routes/governance.js';
 import { sharedGoalsRouter } from './routes/sharedGoals.js';
 import { sheetsRouter } from './routes/sheets.js';
 import { orgChartRouter, teamsRouter } from './routes/teams.js';
@@ -65,6 +71,10 @@ export const ROUTER_MOUNTS = [
   { prefix: '/shared-goals', router: sharedGoalsRouter },
   { prefix: '/appraisals', router: appraisalsRouter },
   { prefix: '/calibration', router: calibrationRouter },
+  { prefix: '/analytics', router: analyticsRouter },
+  { prefix: '/compliance', router: complianceRouter },
+  { prefix: '/escalations', router: escalationsRouter },
+  { prefix: '/audit', router: auditRouter },
 ] as const;
 
 export function createApp(): Express {

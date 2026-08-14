@@ -106,6 +106,34 @@ export const markNotificationsReadRequestSchema = z.object({
   ids: z.array(idSchema).min(1).max(200),
 });
 
+/**
+ * US-1001 — the analytics query.
+ *
+ * Filters are all optional except the cycle. Analytics across every cycle at
+ * once is a question nobody asks and a table scan everybody pays for.
+ */
+export const analyticsQuerySchema = z.object({
+  cycleId: idSchema,
+  teamId: idSchema.optional(),
+  managerId: idSchema.optional(),
+});
+
+/** One row of a `GROUP BY`: what was counted, and how many. */
+export const analyticsBucketSchema = z.object({
+  bucket: z.string(),
+  count: z.int().min(0),
+});
+
+export const analyticsResponseSchema = z.object({
+  cycleId: idSchema,
+  totalSheets: z.int().min(0),
+  totalGoals: z.int().min(0),
+  byThrustArea: z.array(analyticsBucketSchema),
+  byUom: z.array(analyticsBucketSchema),
+  byGoalStatus: z.array(analyticsBucketSchema),
+  bySheetStatus: z.array(analyticsBucketSchema),
+});
+
 export const EXPORT_FORMATS = ['csv', 'xlsx'] as const;
 export const exportFormatSchema = z.enum(EXPORT_FORMATS);
 
@@ -134,5 +162,8 @@ export type Notification = z.infer<typeof notificationSchema>;
 export type ListNotificationsQuery = z.infer<typeof listNotificationsQuerySchema>;
 export type ListNotificationsResponse = z.infer<typeof listNotificationsResponseSchema>;
 export type MarkNotificationsReadRequest = z.infer<typeof markNotificationsReadRequestSchema>;
+export type AnalyticsQuery = z.infer<typeof analyticsQuerySchema>;
+export type AnalyticsBucket = z.infer<typeof analyticsBucketSchema>;
+export type AnalyticsResponse = z.infer<typeof analyticsResponseSchema>;
 export type ExportFormat = z.infer<typeof exportFormatSchema>;
 export type ExportRequest = z.infer<typeof exportRequestSchema>;

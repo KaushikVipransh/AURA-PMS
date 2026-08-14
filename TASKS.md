@@ -1577,12 +1577,46 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > self-tests cover both directions, and the fixtures are flush left because the new splitter anchors to
   > column zero — an indented fixture would have parsed as no functions and passed vacuously.
 
-- [ ] **`W4-18` · Analytics via SQL aggregation** · **Est** 2.5h · PRD US-1001
+- [x] **`W4-18` · Analytics via SQL aggregation** · **Est** 2.5h · PRD US-1001
   **Do:** `GROUP BY` in Postgres — **not** `findMany` + `forEach`. Closes F-13.
   **Done when:** a test seeds 10,000 sheets and asserts the endpoint returns in under 500ms.
-- [ ] **`W4-19` · Audit log query endpoint** · **Est** 1.5h · PRD US-1102
+- [x] **`W4-19` · Audit log query endpoint** · **Est** 1.5h · PRD US-1102
   **Do:** Filter by actor/entity/action/date, paginated, HR + org-admin only.
-- [ ] **`W4-20` · Escalation list & resolve** · **Est** 1.5h · PRD US-903, US-904
+- [x] **`W4-20` · Escalation list & resolve** · **Est** 1.5h · PRD US-903, US-904
+  > **Note (W4-18, W4-19, W4-20):** 35 integration tests. **F-13 is closed.**
+  >
+  > **The analytics endpoint is one query.** Not three, and not one per dimension: a `UNION ALL` of grouped
+  > selects over two CTEs returns thrust area, unit, goal status, sheet status and both totals in a single
+  > round trip. The prototype pulled every sheet into Node and counted with `forEach` — O(rows) memory in a
+  > serverless function, and slowest exactly when analytics matters. The gate seeds **10,000 sheets and
+  > 20,000 goals** and asserts the endpoint answers in under 500ms; it does, comfortably, and
+  > `@@index([orgId, cycleId, status])` from W1 is why.
+  >
+  > **The team and manager filters apply to the sheet's owner, not the sheet.** "My team's goals" means the
+  > goals of the people on my team. Both are passed as nullable SQL parameters and tested with
+  > `(${'{'}param{'}'}::text IS NULL OR ...)`, so one query serves the filtered and unfiltered cases — a query
+  > assembled from concatenated fragments is how injection gets in, and there is no reason to write one.
+  >
+  > **`daysOverdue` has no floor**, and a test proves it: an escalation one day past its deadline reports 1.
+  > The prototype used `Math.max(elapsed, 4)`, so a sheet saved seconds earlier reported "4 days overdue"
+  > (F-08). Each row is computed in the *subject's* own timezone, because someone in Auckland and someone in
+  > Los Angeles do not cross midnight together.
+  >
+  > **Resolving an escalation does not delete it.** The row stays with its resolver, its timestamp and its
+  > required note, and `@@unique([cycleId, subjectUserId, rule])` means W5's nightly job updates this same
+  > row if the condition recurs — which is how US-904's "re-opens automatically" works without a second table
+  > to keep in step.
+  >
+  > **The audit trail has no write path, and a test asserts the surface rather than the intent.** `POST` and
+  > `DELETE` on `/audit` answer 404. Append-only is a property of what exists, not of what was meant, and an
+  > endpoint that could edit the trail would make every row in it worth less. `changedFields` is derived from
+  > the stored diff rather than persisted alongside it, so the two cannot disagree.
+  >
+  > **A test-authoring mistake, again mine.** The audit ordering test expected `cycle.activate` at the top and
+  > failed, because the fixture creates a team *after* activating. The endpoint was right. Rewritten to assert
+  > the ordering property — timestamps descending — rather than the fixture's exact sequence, which would
+  > break every time the fixture grows a step.
+
 - [ ] **`W4-21` · OpenAPI generation from Zod** · **Est** 2h
   **Do:** `zod-openapi` over `packages/contracts` → `/openapi.json` + Scalar docs UI.
   **Done when:** every route appears in the document; a route missing a contract schema fails the build.
