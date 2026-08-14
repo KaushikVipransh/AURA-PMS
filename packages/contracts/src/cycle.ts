@@ -74,6 +74,14 @@ export const createCycleRequestSchema = z
     phases: z.array(phaseInputSchema).min(1).max(5),
     ratingScale: ratingScaleSchema,
     escalationRules: escalationRulesSchema,
+    /**
+     * When the self-appraisal is due, inside the APPRAISAL window (US-702).
+     *
+     * Optional, and absent means the manager waits for the submission rather
+     * than for a clock. See the column comment in `cycle.prisma` for why the
+     * phase table cannot express this on its own.
+     */
+    selfAppraisalDueAt: instantSchema.optional(),
   })
   .superRefine((cycle, ctx) => {
     const keys = cycle.phases.map((phase) => phase.key);
@@ -92,12 +100,39 @@ export const createCycleRequestSchema = z
         path: ['phases'],
       });
     }
+
+    /*
+     * A self-appraisal deadline outside the window it belongs to is not a
+     * deadline, it is a permanent state: one before the phase opens means the
+     * manager may rate from the first day, one after it closes never arrives.
+     */
+    const appraisal = cycle.phases.find((phase) => phase.key === 'APPRAISAL');
+    const due = cycle.selfAppraisalDueAt;
+
+    if (due !== undefined && appraisal !== undefined) {
+      if (due.getTime() < appraisal.startsAt.getTime() || due.getTime() > appraisal.endsAt.getTime()) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'The self-appraisal deadline must fall inside the appraisal phase.',
+          path: ['selfAppraisalDueAt'],
+        });
+      }
+    }
+
+    if (due !== undefined && appraisal === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'A self-appraisal deadline needs an appraisal phase to fall inside.',
+        path: ['selfAppraisalDueAt'],
+      });
+    }
   });
 
 export const updateCycleRequestSchema = z.object({
   name: shortTextSchema.optional(),
   ratingScale: ratingScaleSchema.optional(),
   escalationRules: escalationRulesSchema.optional(),
+  selfAppraisalDueAt: instantSchema.nullable().optional(),
 });
 
 /**

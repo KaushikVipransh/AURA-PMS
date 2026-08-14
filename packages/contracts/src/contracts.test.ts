@@ -269,6 +269,71 @@ describe('cycle', () => {
     expect(parsed.phases[0]?.startsAt).toBeInstanceOf(Date);
   });
 
+  describe('the self-appraisal deadline (US-702)', () => {
+    const withAppraisal = {
+      ...validCycle,
+      phases: [phase('APPRAISAL', '2026-10-01T00:00:00.000Z', '2026-10-16T00:00:00.000Z')],
+    };
+
+    it('is optional, because waiting for the submission is a valid choice', () => {
+      expect(createCycleRequestSchema.safeParse(withAppraisal).success).toBe(true);
+    });
+
+    it('accepts a deadline inside the appraisal window', () => {
+      const result = createCycleRequestSchema.safeParse({
+        ...withAppraisal,
+        selfAppraisalDueAt: '2026-10-08T00:00:00.000Z',
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts the window boundaries themselves', () => {
+      for (const due of ['2026-10-01T00:00:00.000Z', '2026-10-16T00:00:00.000Z']) {
+        expect(
+          createCycleRequestSchema.safeParse({ ...withAppraisal, selfAppraisalDueAt: due }).success,
+        ).toBe(true);
+      }
+    });
+
+    it('rejects a deadline before the window opens', () => {
+      // Before the phase starts, the deadline has always passed -- so the
+      // manager could rate from the first day and the gate would never bite.
+      const result = createCycleRequestSchema.safeParse({
+        ...withAppraisal,
+        selfAppraisalDueAt: '2026-09-20T00:00:00.000Z',
+      });
+
+      expect(messagesFrom(result)).toContain(
+        'The self-appraisal deadline must fall inside the appraisal phase.',
+      );
+    });
+
+    it('rejects a deadline after the window closes', () => {
+      // After the phase ends, the deadline never arrives inside a window where
+      // anyone could act on it.
+      const result = createCycleRequestSchema.safeParse({
+        ...withAppraisal,
+        selfAppraisalDueAt: '2026-11-20T00:00:00.000Z',
+      });
+
+      expect(messagesFrom(result)).toContain(
+        'The self-appraisal deadline must fall inside the appraisal phase.',
+      );
+    });
+
+    it('rejects a deadline on a cycle with no appraisal phase', () => {
+      const result = createCycleRequestSchema.safeParse({
+        ...validCycle,
+        selfAppraisalDueAt: '2026-10-08T00:00:00.000Z',
+      });
+
+      expect(messagesFrom(result)).toContain(
+        'A self-appraisal deadline needs an appraisal phase to fall inside.',
+      );
+    });
+  });
+
   it('accepts phases that meet exactly, which is adjacency and not overlap', () => {
     const result = createCycleRequestSchema.safeParse({
       ...validCycle,

@@ -20,6 +20,7 @@ const CYCLE_VIEW = {
   status: true,
   ratingScale: true,
   escalationRules: true,
+  selfAppraisalDueAt: true,
 } as const;
 
 /** Raised when a cycle cannot be created or moved as asked. */
@@ -76,6 +77,7 @@ export async function createCycle(
         // later cannot rewrite a historical rating (US-203).
         ratingScale: input.ratingScale,
         escalationRules: input.escalationRules,
+        selfAppraisalDueAt: input.selfAppraisalDueAt ?? null,
         phases: {
           create: input.phases.map((phase) => ({
             key: phase.key,
@@ -116,6 +118,11 @@ export async function updateCycle(
           ...(input.escalationRules === undefined
             ? {}
             : { escalationRules: input.escalationRules }),
+          // `null` is a value here, not an absence: clearing the deadline
+          // means "wait for the submission", which is a real choice.
+          ...(input.selfAppraisalDueAt === undefined
+            ? {}
+            : { selfAppraisalDueAt: input.selfAppraisalDueAt }),
         },
         select: CYCLE_VIEW,
       });

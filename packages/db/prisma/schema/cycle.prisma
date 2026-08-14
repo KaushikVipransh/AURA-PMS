@@ -37,6 +37,21 @@ model ReviewCycle {
   /// Per-cycle escalation thresholds (PRD US-204).
   escalationRules Json @default("{}")
 
+  /// When the self-appraisal is due, inside the APPRAISAL window.
+  ///
+  /// US-702 says a manager "cannot rate before self-appraisal submits or its
+  /// deadline passes", and the phase table cannot express that: both
+  /// `SUBMIT_SELF_APPRAISAL` and `SUBMIT_MANAGER_APPRAISAL` live in the
+  /// APPRAISAL phase (W2-03), so treating the phase end as the self-appraisal
+  /// deadline would mean the deadline and the manager's own window expire
+  /// together — the manager could never rate an unsubmitted appraisal at all.
+  ///
+  /// Nullable, and null means **no deadline**: the manager waits for the
+  /// submission. That is the strict reading, and it is the right default,
+  /// because the alternative failure is a manager rating someone who was never
+  /// given a chance to speak first.
+  selfAppraisalDueAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

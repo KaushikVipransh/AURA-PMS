@@ -17,7 +17,9 @@ import cors from 'cors';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 
 import { authRoutes } from './auth/index.js';
+import { appraisalsRouter } from './routes/appraisals.js';
 import { authRouter } from './routes/auth.js';
+import { calibrationRouter } from './routes/calibration.js';
 import { cyclesRouter, meRouter } from './routes/cycles.js';
 import { sharedGoalsRouter } from './routes/sharedGoals.js';
 import { sheetsRouter } from './routes/sheets.js';
@@ -61,6 +63,8 @@ export const ROUTER_MOUNTS = [
   { prefix: '/teams', router: teamsRouter },
   { prefix: '/org-chart', router: orgChartRouter },
   { prefix: '/shared-goals', router: sharedGoalsRouter },
+  { prefix: '/appraisals', router: appraisalsRouter },
+  { prefix: '/calibration', router: calibrationRouter },
 ] as const;
 
 export function createApp(): Express {

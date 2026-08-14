@@ -1532,10 +1532,51 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > not the 40, and every weightage sum in the file was computed against the wrong goal. Fixed by prefixing
   > the titles `A`/`B`/`C` so the sort order matches the written order. The tests were wrong, not the code.
 
-- [ ] **`W4-15` · Self-appraisal endpoints** · **Est** 2.5h · PRD US-701
-- [ ] **`W4-16` · Manager rating endpoints** · **Est** 2.5h · PRD US-702, US-703
+- [x] **`W4-15` · Self-appraisal endpoints** · **Est** 2.5h · PRD US-701
+- [x] **`W4-16` · Manager rating endpoints** · **Est** 2.5h · PRD US-702, US-703
   **Do:** Blocked until self-appraisal submits or its deadline passes.
-- [ ] **`W4-17` · Calibration endpoints** · **Est** 2.5h · PRD US-801, 802, 803
+- [x] **`W4-17` · Calibration endpoints** · **Est** 2.5h · PRD US-801, 802, 803
+  > **Note (W4-15, W4-16, W4-17):** 57 integration tests. This is the half of the product the prototype did
+  > not have at all (PLAN.md §6, F-13 through F-15) — it covered goal setting and check-ins and stopped.
+  >
+  > **US-702's rule needed a column the phase table could not express.** "A manager cannot rate before the
+  > self-appraisal submits or its deadline passes" has no meaning when both `SUBMIT_SELF_APPRAISAL` and
+  > `SUBMIT_MANAGER_APPRAISAL` live in the same APPRAISAL phase: treating the phase end as the self-appraisal
+  > deadline makes the deadline and the manager's own window expire together, so the manager could never rate
+  > an unsubmitted appraisal at all. Added `ReviewCycle.selfAppraisalDueAt`, nullable, where **null means no
+  > deadline and the manager waits** — the strict default, because the opposite failure is rating someone who
+  > was never given the chance to speak first. The contract refuses a deadline outside the appraisal window:
+  > one before it opens has always passed, one after it closes never arrives.
+  >
+  > **`GoalRating` gained `selfNarrative` rather than reusing `narrative`.** The two are answers to the same
+  > question from two people, and the whole point of US-702 is that the manager rates *with* the
+  > self-appraisal visible. One column would have meant the manager's text overwrote the employee's — the
+  > same "a later stage erases the earlier one" mistake the four side-by-side stages on `Appraisal` exist to
+  > avoid. A test asserts both survive.
+  >
+  > **The final rating is seeded from the manager's, not left null.** An appraisal whose final rating is
+  > absent until somebody calibrates it would publish nothing for every employee nobody discussed.
+  > Calibration is an adjustment to a decision already made.
+  >
+  > **Rating bounds are checked against the cycle's snapshotted scale, not in the schema.** A schema asserting
+  > 0–10 accepts a 7 on a 1–5 cycle: a number that parses and means nothing. A cycle whose scale cannot be
+  > read is refused outright rather than defaulted, because a default scale silently re-scales every rating
+  > in the cycle — which is what snapshotting the scale exists to prevent (US-203).
+  >
+  > **`Appraisal` carries no `orgId`, so the org-scope extension does not cover it.** This is the "tenancy
+  > travels through a parent" case `ORG_SCOPED_MODELS` names, and it is a live hole rather than a theoretical
+  > one: `calibrateAppraisal` takes an id straight from the request body. Every access filters through
+  > `sheet: { orgId }`, and a test posts another organization's appraisal id and asserts 404.
+  >
+  > **W4-02's own detector had a bug, and finding it was the point of having it.** It sliced source from one
+  > `export function` to the next, so the private `ensureAppraisal` was attributed to `readAppraisal` — a
+  > function that writes nothing — and the build failed naming the wrong function. A checker that blames the
+  > wrong thing teaches people to reorder code until it goes quiet. Rewritten to split on **every** top-level
+  > declaration, and made strictly stronger while there: a private helper that writes now flags any exported
+  > function that *calls* it outside a wrapper, which the first version could not see at all. Five new
+  > self-tests cover both directions, and the fixtures are flush left because the new splitter anchors to
+  > column zero — an indented fixture would have parsed as no functions and passed vacuously.
+
 - [ ] **`W4-18` · Analytics via SQL aggregation** · **Est** 2.5h · PRD US-1001
   **Do:** `GROUP BY` in Postgres — **not** `findMany` + `forEach`. Closes F-13.
   **Done when:** a test seeds 10,000 sheets and asserts the endpoint returns in under 500ms.

@@ -56,8 +56,19 @@ model GoalRating {
   appraisalId String
   goalId      String
 
+  /// The manager's rating and reasoning for this goal (US-702).
   rating    Int?
   narrative String?
+
+  /// The employee's own reflection on this goal (US-701).
+  ///
+  /// A separate column rather than a second row, because the two are answers
+  /// to the same question from two people and the point of US-702 is that the
+  /// manager rates *with the self-appraisal visible*. Storing both in one
+  /// `narrative` would mean the manager's text overwrote the employee's — the
+  /// same "later stage erases the earlier one" mistake the four side-by-side
+  /// stages on `Appraisal` exist to avoid.
+  selfNarrative String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
