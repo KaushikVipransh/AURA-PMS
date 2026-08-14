@@ -42,6 +42,18 @@ model User {
   /// Multiple roles per user — an HR admin is usually also an employee with
   /// their own goal sheet. Checked server-side on every request; the prototype
   /// kept this in localStorage and never verified it (F-01).
+  /// Per-category notification preferences (PRD US-1202).
+  ///
+  /// Shape: `{ "APPROVALS": { "email": false, "inApp": true }, ... }`, keyed by
+  /// `NOTIFICATION_CATEGORIES` in `@aura/core`. An absent category means
+  /// enabled, so a new category is on by default rather than silently off for
+  /// everyone who signed up before it existed.
+  ///
+  /// Compliance notices ignore this entirely and are labelled as forced — a
+  /// person who has missed a deadline being able to silence the reminder about
+  /// it defeats the purpose of having one.
+  notificationPreferences Json @default("{}")
+
   roles  Role[]     @default([EMPLOYEE])
   status UserStatus @default(INVITED)
 

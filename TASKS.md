@@ -1673,27 +1673,69 @@ covering the happy path, validation failure, permission denial, and cross-org is
 > **Goal:** the system acts on its own schedule. Closes F-08.
 > **Independence:** W5-01 first. W5-02…W5-07 are parallel.
 
-- [ ] **`W5-01` · pg-boss setup + worker process** · **Est** 2.5h
+- [x] **`W5-01` · pg-boss setup + worker process** · **Est** 2.5h
   **Do:** `apps/worker` as a standalone process. pg-boss schema migration, graceful shutdown, job-failure
   logging to Sentry.
   **Done when:** the worker starts, processes a test job, and shuts down cleanly on SIGTERM.
   **Verify:** `pnpm verify:integration`
 
-- [ ] **`W5-02` · Nightly escalation job** · **Est** 2.5h · PRD US-901, 902
+- [x] **`W5-02` · Nightly escalation job** · **Est** 2.5h · PRD US-901, 902
   **Do:** Cron-scheduled. Loads active cycles, evaluates via W2-05 using real `CyclePhase.endsAt` deadlines,
   writes `Escalation` rows, enqueues notifications. **No admin button anywhere.**
   **Done when:** a test with a seeded overdue sheet produces the correct tier and a real day count; running it
   twice in a day is idempotent.
 
-- [ ] **`W5-03` · Email adapter (Resend) + React Email templates** · **Est** 2.5h
+- [x] **`W5-03` · Email adapter (Resend) + React Email templates** · **Est** 2.5h
   **Do:** Behind `packages/core/notifications`. Templates for invite, reset, submitted, approved, returned,
   overdue, rating released.
   **Done when:** templates render to HTML in tests; the adapter is mocked in tests and never sends live mail.
 
-- [ ] **`W5-04` · Notification dispatcher** · **Est** 2h · PRD US-1201, 1202
+- [x] **`W5-04` · Notification dispatcher** · **Est** 2h · PRD US-1201, 1202
   **Do:** Consumes the queue, writes the in-app `Notification` row, respects per-category preferences, sends
   email unless suppressed. Compliance-mandatory notices ignore suppression and are labelled.
   **Done when:** tests cover preference suppression, the mandatory override, and delivery-status recording.
+
+  > **Note (W5-01 … W5-04):** 29 worker integration tests plus 41 new unit tests. **F-08 is closed.** The
+  > prototype's escalation engine ran when an admin clicked a button — so it ran when somebody remembered —
+  > and its "notification chain" wrote a status string onto a document while sending nothing at all. Both
+  > halves are now real.
+  >
+  > **Sharing the Prisma connection pool with pg-boss was tried and does not work.** pg-boss ships
+  > `fromPrisma`, which hands it the Prisma client as a SQL executor; it fails on the very first query,
+  > because the installation check selects `to_regclass(...)` and Prisma cannot deserialize a `regclass`
+  > column. The SQL belongs to pg-boss, so there is no cast available from this side. The queue gets its own
+  > bounded pool of four, and the comment says so rather than keeping a rationale that no longer applies.
+  >
+  > **The sweep is idempotent by construction, not by intention.** `@@unique([cycleId, subjectUserId, rule])`
+  > makes it an upsert, so a cron that fires twice updates one row instead of piling up duplicates — and a
+  > resolved escalation whose condition recurs re-opens on that same row, which is US-904's "re-opens
+  > automatically" with no second table to keep in step. Both are asserted.
+  >
+  > **An unapproved sheet is charged to the manager, not the employee.** The prototype had no reporting line
+  > at all, so it could not have drawn that distinction; getting it wrong chases the person who already did
+  > their part.
+  >
+  > **Suppression is decided from the template, never from the job.** Whoever enqueues a notification does not
+  > get to declare it mandatory. A test posts `mandatory: true` in the payload of an ordinary notification
+  > and asserts the row comes out `false`, and another turns every compliance channel off and asserts the
+  > overdue notice still arrives — labelled as forced rather than hidden (US-1202). A deactivated account
+  > receives nothing on either channel: "mandatory" means a person cannot opt out, not that it follows them
+  > out of the organization.
+  >
+  > **A suppressed notification still writes a row.** Without one, "why did nobody hear about this" is
+  > unanswerable, which is the entire point of the delivery log (US-1203).
+  >
+  > **The email adapter defaults to one that cannot send**, and that is the most important assertion in the
+  > suite: a test run that could reach a real provider is one bad environment variable away from emailing an
+  > organization about a seeded cycle, and no assertion protects against that after the fact. The live
+  > adapter is chosen only when both `RESEND_API_KEY` and `EMAIL_FROM` are present. Bodies are HTML-escaped,
+  > because a returned-sheet reason is typed by a manager and a shared-goal title by whoever created it —
+  > interpolating either unescaped is stored XSS with an email client as the sink.
+  >
+  > **`console.info` got one seam rather than four exceptions.** The `no-console` rule allows only `warn` and
+  > `error`, which is right for request-handling code; a worker's startup and per-job results are genuinely
+  > informational. `src/log.ts` is the single documented exception, tested, and the place W7's structured
+  > logger replaces.
 
 - [ ] **`W5-05` · Background CSV export job** · **Est** 2h · PRD US-1002
   **Do:** Serializes via W2-08, uploads to R2, returns a signed URL, records an audit event for the export

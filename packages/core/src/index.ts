@@ -88,6 +88,17 @@ export {
 } from './cascade.js';
 
 export {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TEMPLATES,
+  UnknownNotificationError,
+  isSuppressible,
+  renderNotification,
+  type NotificationCategory,
+  type NotificationTemplate,
+  type RenderedNotification,
+} from './notifications.js';
+
+export {
   CSV_LINE_ENDING,
   FORMULA_GUARD,
   FORMULA_TRIGGERS,
