@@ -1791,27 +1791,70 @@ covering the happy path, validation failure, permission denial, and cross-org is
 > **Independence:** W6-01…W6-05 are the foundation and are parallel with each other. W6-06…W6-19 each own one
 > route/feature directory and are parallel after the foundation.
 
-- [ ] **`W6-01` · TypeScript migration of `apps/web`** · **Est** 3h
+- [x] **`W6-01` · TypeScript migration of `apps/web`** · **Est** 3h
   **Do:** Rename `.jsx` → `.tsx`, add types, extend the shared tsconfig. No behaviour change.
   **Done when:** `pnpm turbo run typecheck --filter=web` passes with zero `any` in `src/pages`.
 
-- [ ] **`W6-02` · Typed API client** · **Est** 2h
+- [x] **`W6-02` · Typed API client** · **Est** 2h
   **Do:** `src/lib/api.ts` — one client from `packages/contracts` types, `VITE_API_URL` from env, credentials
   included, typed errors. **Delete all 20 hardcoded `aurapms-backend.vercel.app` URLs.** Closes F-12.
   **Done when:** `grep -r "aurapms-backend" apps/web/src` returns nothing.
 
-- [ ] **`W6-03` · TanStack Query setup** · **Est** 1.5h
+- [x] **`W6-03` · TanStack Query setup** · **Est** 1.5h
   **Do:** Provider, sensible defaults, devtools in dev, a global error handler wired to toasts.
 
-- [ ] **`W6-04` · Auth context, login page, route guards** · **Est** 3h
+- [x] **`W6-04` · Auth context, login page, route guards** · **Est** 3h
   **Do:** Replace `ProtectedRoute`'s `localStorage` check with a real server-backed session. Global 401
   interceptor redirecting to login and preserving the return URL. Closes the client half of F-01.
   **Done when:** clearing localStorage grants no access; a direct URL to a guarded route redirects to login and
   returns after auth.
 
-- [ ] **`W6-05` · Toast & error system — remove every `alert()`** · **Est** 2h
+- [x] **`W6-05` · Toast & error system — remove every `alert()`** · **Est** 2h
   **Do:** `sonner` toasts, inline field errors from Zod, error boundaries per route. Closes F-14's UX half.
   **Done when:** `grep -rn "alert(" apps/web/src` returns nothing.
+
+  > **Note (W6-01 … W6-05):** 51 web tests. The foundation is in; **the feature views are not** — W6-06 to
+  > W6-18 are still open, and the routes they will own render a placeholder that says so rather than an empty
+  > page pretending to work.
+  >
+  > **The prototype's four page components were deleted, not migrated.** They talked to a dead backend at
+  > twenty hardcoded `aurapms-backend.vercel.app` URLs, reported failures through 23 `alert()` calls, and read
+  > identity out of `localStorage`. Converting them to TypeScript would have shipped F-01, F-12 and F-14 in a
+  > screen that looks finished.
+  >
+  > **`prototype-removed.test.ts` is the gate that stops them coming back.** Three greps as a test — no
+  > hardcoded host, no `localStorage`, no `alert()` — plus one asserting `fetch` is called in exactly one
+  > file. **Comments are stripped before searching**, because the explanations of what was removed are the
+  > only record of the reasoning, and a check that could not tell prose from code would force their deletion
+  > to stay green. The stripper has its own tests, including one asserting it leaves real code alone.
+  >
+  > **The F-01 regression test writes the exact key the prototype read.**
+  > `localStorage.setItem('atomquest_role', 'admin')` was a complete authentication bypass; the test performs
+  > it and asserts the guard still redirects to the login page.
+  >
+  > **The guard renders nothing while the session resolves.** Redirecting instead would bounce every
+  > signed-in user to the login page on a hard refresh, because the cookie is only resolved by a round trip.
+  > The attempted path travels in router state, so signing in returns you to the link somebody sent you.
+  >
+  > **Login gives one message for a wrong password and an unknown address.** Distinguishing them turns the
+  > form into an account oracle — "does bob@rival.example have an account here", answered by a login attempt —
+  > and the server refuses to distinguish them either (US-103). A 500 gets a *different* message, because
+  > telling someone their password is wrong when the database is down sends them to reset a password that was
+  > never the problem.
+  >
+  > **The API client checks the status before parsing the body.** The prototype did the reverse in several
+  > places, so a 502 with an HTML error page threw a JSON parse error and the user saw "Unexpected token <".
+  > Retries are limited to network faults and 5xx: retrying a 400 sends the same invalid body three more
+  > times and delays the message that would have told the user what to fix.
+  >
+  > **The session became a query, and the first draft was worse.** It was a `useEffect` with a `useState`
+  > beside it — refetching on every mount, duplicating the retry policy that already existed, and updating
+  > state from inside an effect, which React's own lint rule flags as how cascading re-renders start. Moving
+  > it onto the query client removed all three.
+  >
+  > **The source-scan test reads files through Vite's raw glob, not `node:fs`.** Importing `node:fs` would
+  > mean adding `node` to this app's `types`, which makes `process` and `Buffer` typecheck inside components
+  > — a browser app one import away from a runtime error TypeScript approved of.
 
 - [ ] **`W6-06` · Goal builder rewrite** · **Est** 3h · PRD US-301, 302, 303
   **Do:** React Hook Form + the shared schema. Live weightage meter. **Direction selector with a plain-language
