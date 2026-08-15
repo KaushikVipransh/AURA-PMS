@@ -15,8 +15,11 @@ import type { PgBoss } from 'pg-boss';
 
 import { QUEUES, createBoss, ensureQueues } from './boss.js';
 import { log } from './log.js';
+import { runWeeklyDigest } from './jobs/digest.js';
 import { dispatchNotification, type DispatchJob } from './jobs/dispatch.js';
 import { runEscalationSweep } from './jobs/escalations.js';
+import { runExport, type ExportJob } from './jobs/export.js';
+import { runMetricsSnapshot } from './jobs/metrics.js';
 
 /**
  * When the nightly sweep runs, in UTC.
@@ -26,6 +29,18 @@ import { runEscalationSweep } from './jobs/escalations.js';
  * midnight UTC would race that boundary for every organization east of it.
  */
 export const SWEEP_CRON = '0 2 * * *';
+
+/**
+ * The metrics snapshot, half an hour after the sweep.
+ *
+ * After, not before: the escalation count is one of the numbers it records, so
+ * running it first would snapshot yesterday's compliance picture alongside
+ * today's everything else.
+ */
+export const METRICS_CRON = '30 2 * * *';
+
+/** The weekly digest, Monday morning. Nobody reads a round-up on Sunday night. */
+export const DIGEST_CRON = '0 8 * * 1';
 
 export type Worker = {
   readonly boss: PgBoss;
@@ -64,7 +79,30 @@ export async function startWorker(): Promise<Worker> {
     await dispatchNotification(job.data);
   });
 
+  await boss.work(QUEUES.metricsSnapshot, async () => {
+    const result = await runMetricsSnapshot(new Date());
+
+    log.info('metrics snapshot', result);
+  });
+
+  await boss.work(QUEUES.weeklyDigest, async () => {
+    const result = await runWeeklyDigest(boss);
+
+    log.info('weekly digest', result);
+  });
+
+  await boss.work<ExportJob>(QUEUES.cycleExport, async ([job]) => {
+    if (job === undefined) {
+      return;
+    }
+    const result = await runExport(job.data);
+
+    log.info('cycle export', { key: result.key, rows: result.rows });
+  });
+
   await boss.schedule(QUEUES.escalationSweep, SWEEP_CRON);
+  await boss.schedule(QUEUES.metricsSnapshot, METRICS_CRON);
+  await boss.schedule(QUEUES.weeklyDigest, DIGEST_CRON);
 
   log.info('started');
 
@@ -132,4 +170,12 @@ if (process.env['WORKER_AUTOSTART'] !== 'off') {
   }
 }
 
-export { QUEUES, createBoss, dispatchNotification, runEscalationSweep };
+export {
+  QUEUES,
+  createBoss,
+  dispatchNotification,
+  runEscalationSweep,
+  runExport,
+  runMetricsSnapshot,
+  runWeeklyDigest,
+};

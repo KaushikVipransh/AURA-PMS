@@ -120,6 +120,24 @@ export const NOTIFICATION_TEMPLATES: Readonly<Record<string, NotificationTemplat
     link: (d) => `/appraisals/${get(d, 'appraisalId')}`,
   },
 
+  /**
+   * The weekly digest (W5-06).
+   *
+   * Suppressible, unlike the escalations it summarises. Someone who has opted
+   * out of the weekly round-up still gets the individual compliance notices —
+   * the digest is a convenience, and the notices are not.
+   */
+  'digest.weekly': {
+    category: 'GOAL_SETTING',
+    mandatory: false,
+    subject: () => 'Your week in AuraPMS',
+    body: (d) =>
+      `Waiting on you: ${get(d, 'awaitingApproval')} approvals, ` +
+      `${get(d, 'unsubmitted')} unsubmitted sheets, ` +
+      `${get(d, 'escalations')} open escalations.`,
+    link: () => '/dashboard',
+  },
+
   'escalation.goals_not_submitted': {
     category: 'COMPLIANCE',
     mandatory: true,

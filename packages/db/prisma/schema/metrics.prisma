@@ -1,0 +1,56 @@
+/// A nightly snapshot of one cycle's PRD §8 metrics (W5-07).
+///
+/// **Written rather than computed on demand, and that is the whole point.**
+/// Every number here is derivable from the live tables today, but only for
+/// today: once a sheet is approved, "how many were approved within 14 days of
+/// the cycle opening" stops being answerable, because the row no longer
+/// remembers what it looked like on day 14. A trend line needs history, and
+/// history has to be recorded as it happens.
+///
+/// One row per cycle per calendar day. Re-running the job on the same day
+/// updates that row rather than appending a second one, so a cron that fires
+/// twice does not put a step in the graph.
+model CycleMetrics {
+  id      String @id @default(cuid())
+  orgId   String
+  cycleId String
+
+  /// The civil day this snapshot describes, at UTC midnight.
+  capturedOn DateTime
+
+  /// PRD §8.1 — the north star: employees who completed a whole cycle without
+  /// manual HR intervention. Stored as a count and a denominator rather than a
+  /// percentage, because a stored percentage cannot be re-aggregated across
+  /// cycles and a count can.
+  completedFullCycle Int @default(0)
+  totalEmployees     Int @default(0)
+
+  /// §8.2 adoption.
+  sheetsApproved  Int @default(0)
+  sheetsSubmitted Int @default(0)
+
+  /// §8.3 engagement.
+  checkInsRecorded      Int @default(0)
+  sheetsWithComments    Int @default(0)
+  selfAppraisalsOnTime  Int @default(0)
+
+  /// §8.4 quality.
+  sheetsReturned    Int @default(0)
+  ratingsDisputed   Int @default(0)
+  divergentRatings  Int @default(0)
+  ratingsTotal      Int @default(0)
+
+  /// §8.2 — escalations open at capture, which is the "HR hours chasing"
+  /// proxy the target is written against.
+  openEscalations Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cycle ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  /// One snapshot per cycle per day. Makes the nightly job an upsert.
+  @@unique([cycleId, capturedOn])
+  @@index([orgId, capturedOn])
+  @@map("cycle_metrics")
+}

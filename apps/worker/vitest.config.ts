@@ -20,6 +20,7 @@ export default defineConfig({
         'src/boss.ts',
         'src/jobs/**',
         'src/email.ts',
+        'src/storage.ts',
       ],
       thresholds: {
         lines: 80,

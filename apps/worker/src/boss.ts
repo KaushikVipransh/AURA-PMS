@@ -22,6 +22,12 @@ export const QUEUES = {
   escalationSweep: 'escalation.sweep',
   /** One notification, rendered and delivered (W5-04). */
   notificationDispatch: 'notification.dispatch',
+  /** One cycle exported to CSV and stored (W5-05). */
+  cycleExport: 'cycle.export',
+  /** The weekly round-up of what is waiting for each person (W5-06). */
+  weeklyDigest: 'digest.weekly',
+  /** Nightly snapshot of the PRD section 8 metrics (W5-07). */
+  metricsSnapshot: 'metrics.snapshot',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];

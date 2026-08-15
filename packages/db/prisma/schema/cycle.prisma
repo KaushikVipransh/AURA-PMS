@@ -56,6 +56,7 @@ model ReviewCycle {
   updatedAt DateTime @updatedAt
 
   phases      CyclePhase[]
+  metrics     CycleMetrics[]
   goalSheets  GoalSheet[]
   sharedGoals SharedGoal[]
 

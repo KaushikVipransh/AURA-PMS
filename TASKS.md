@@ -1737,15 +1737,51 @@ covering the happy path, validation failure, permission denial, and cross-org is
   > informational. `src/log.ts` is the single documented exception, tested, and the place W7's structured
   > logger replaces.
 
-- [ ] **`W5-05` · Background CSV export job** · **Est** 2h · PRD US-1002
+- [x] **`W5-05` · Background CSV export job** · **Est** 2h · PRD US-1002
   **Do:** Serializes via W2-08, uploads to R2, returns a signed URL, records an audit event for the export
   itself.
   **Done when:** a test generates an export for a seeded cycle and asserts correct quoting and injection
   neutralization in the stored object.
 
-- [ ] **`W5-06` · Weekly digest job** · **Est** 1.5h
-- [ ] **`W5-07` · Cycle metrics snapshot job** · **Est** 2h
+- [x] **`W5-06` · Weekly digest job** · **Est** 1.5h
+- [x] **`W5-07` · Cycle metrics snapshot job** · **Est** 2h
   **Do:** Nightly write of PRD §8 metrics into a `cycle_metrics` table so historical trend survives.
+
+  > **Note (W5-05, W5-06, W5-07):** 26 further worker integration tests. **Wave 5 is complete — 7 of 7.**
+  >
+  > **The storage adapter defaults to one that cannot reach the network**, for the same reason the email
+  > adapter does and with higher stakes: an export contains every goal, rating and comment in a cycle, so a
+  > suite that could write one to a real bucket is a data leak waiting for a misconfigured environment. A
+  > *partially* configured bucket also falls back to memory — "wrote it somewhere unexpected" is worse than
+  > "did not write it".
+  >
+  > **The in-memory adapter is not a convenience.** US-1002's acceptance criteria are about the *contents* of
+  > the stored file — RFC 4180 quoting and `= + - @` neutralisation — and those cannot be asserted through a
+  > signed URL. The test writes a goal titled `=cmd|'/c calc'!A1`, which is a formula that runs when the
+  > sheet is opened, and asserts the guard character is there.
+  >
+  > **The export column list is a whitelist.** A request names a column from the declared set rather than
+  > reaching into the row, so adding a field to a model never silently widens what leaves the system — and an
+  > export naming no known column is refused rather than defaulting to everything.
+  >
+  > **The export is audited**, built through the same `buildAuditEvent` as every other row. It is not wrapped
+  > in `withAudit`, and the difference is worth stating: that helper puts a mutation and its audit row in one
+  > transaction, and there is no mutation here. What is recorded is the *act of exporting* — which is exactly
+  > the event the prototype would have missed, since it logged one action out of a dozen (F-09).
+  >
+  > **The metrics table exists because the numbers stop being answerable.** Every count in it is derivable
+  > from the live tables today and only today: once a sheet is approved, "how many were approved within 14
+  > days of the cycle opening" has no source left. A trend needs history written as it happens. Counted in
+  > SQL — a metrics job that loaded every sheet to count them would be F-13 rebuilt where nobody looks — with
+  > one deliberate exception: the §8.4 divergence count calls the W2-01 engine, because re-implementing its
+  > formula in SQL to save a query would put a second scoring rule in the system, which is what F-07 was.
+  >
+  > **The snapshot runs after the sweep, not before.** The open-escalation count is one of the numbers it
+  > records, so the other order would pair yesterday's compliance picture with today's everything else.
+  >
+  > **The digest only goes to people with something outstanding.** One that arrives weekly saying "nothing to
+  > do" trains people to filter it, and the week it matters it lands in the same folder. It is suppressible
+  > while the escalations it summarises are not — the digest is a convenience, the notices are not.
 
 ---
 
