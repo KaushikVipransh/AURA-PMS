@@ -23,6 +23,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { toast } from 'sonner';
 
 import { api, onUnauthenticated } from './api.js';
 import {
@@ -72,15 +73,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [queryClient],
   );
 
+  /**
+   * Sign out. **Never rejects.**
+   *
+   * The first draft used `try/finally`, which cleared the identity and then
+   * re-threw — so every call site needed a `.catch` and the one in the test
+   * harness surfaced as an unhandled rejection. That contradicted the whole
+   * intent: if the local session is gone, the sign-out succeeded from the only
+   * perspective that matters here. The server failure is still worth saying
+   * out loud, so it becomes a toast rather than an exception.
+   */
   const signOut = useCallback(async () => {
     try {
       await api.post('/auth/logout');
+    } catch {
+      toast.warning('Signed out on this device, but the server could not be reached.');
     } finally {
+      /*
+       * Order matters, and the first draft had it backwards.
+       *
+       * It wrote the null session and then called `queryClient.clear()`, which
+       * removed the very entry it had just written — and because the session
+       * query is still mounted, TanStack refetched it and the signed-out user
+       * reappeared. A test caught it by failing a logout request and finding
+       * the name still on screen.
+       *
+       * So: drop everything that belonged to that person *except* the session,
+       * then state plainly that nobody is signed in.
+       */
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
       // Cleared even if the request failed. A user who asked to be signed out
       // should not still see their own dashboard because the network blipped.
       forget();
-      // Everything else in the cache belonged to that person.
-      queryClient.clear();
     }
   }, [forget, queryClient]);
 

@@ -16,6 +16,15 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    /*
+     * Bounded, because `turbo run test` starts every package's suite at once
+     * and jsdom workers are the heaviest of them. Unbounded, this suite passed
+     * on its own and failed inside the full run with "Failed to start forks
+     * worker" — a resource limit, not a test failure, and the least useful
+     * kind of red because it names no assertion.
+     */
+    maxWorkers: 2,
+    minWorkers: 1,
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     coverage: {
       provider: 'v8',

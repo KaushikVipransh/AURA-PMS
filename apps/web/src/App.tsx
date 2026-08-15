@@ -16,6 +16,9 @@ import { RequireAuth } from './components/RequireAuth.js';
 import { useAuth } from './lib/auth-context.js';
 import { AuthProvider } from './lib/auth.js';
 import { createQueryClient } from './lib/query.js';
+import { AppraisalPage } from './pages/AppraisalPage.js';
+import { CheckInPage } from './pages/CheckInPage.js';
+import { GoalsPage } from './pages/GoalsPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { Placeholder } from './pages/Placeholder.js';
 
@@ -51,7 +54,7 @@ export function AppRoutes() {
         path="/goals"
         element={
           <RequireAuth>
-            <Placeholder title="My goals" task="W6-06" />
+            <GoalsPage />
           </RequireAuth>
         }
       />
@@ -60,7 +63,7 @@ export function AppRoutes() {
         path="/check-in"
         element={
           <RequireAuth>
-            <Placeholder title="Check in" task="W6-07" />
+            <CheckInPage />
           </RequireAuth>
         }
       />
@@ -69,7 +72,7 @@ export function AppRoutes() {
         path="/appraisal"
         element={
           <RequireAuth>
-            <Placeholder title="Self-appraisal" task="W6-08" />
+            <AppraisalPage />
           </RequireAuth>
         }
       />

@@ -88,6 +88,17 @@ export {
 } from './cascade.js';
 
 export {
+  DIRECTION_EXPLANATIONS,
+  DIRECTION_LABELS,
+  GOAL_STATUS_LABELS,
+  SHEET_STATUS_LABELS,
+  THRUST_AREA_LABELS,
+  UOM_EXPLANATIONS,
+  UOM_LABELS,
+  labelFor,
+} from './labels.js';
+
+export {
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_TEMPLATES,
   UnknownNotificationError,

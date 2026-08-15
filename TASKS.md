@@ -1856,12 +1856,53 @@ covering the happy path, validation failure, permission denial, and cross-org is
   > mean adding `node` to this app's `types`, which makes `process` and `Buffer` typecheck inside components
   > — a browser app one import away from a runtime error TypeScript approved of.
 
-- [ ] **`W6-06` · Goal builder rewrite** · **Est** 3h · PRD US-301, 302, 303
+- [x] **`W6-06` · Goal builder rewrite** · **Est** 3h · PRD US-301, 302, 303
   **Do:** React Hook Form + the shared schema. Live weightage meter. **Direction selector with a plain-language
   explanation of its scoring effect.** Specific submit-blocked reasons, never a generic error.
-- [ ] **`W6-07` · Check-in view** · **Est** 2.5h · PRD US-601
-- [ ] **`W6-08` · Self-appraisal view** · **Est** 3h · PRD US-701
+- [x] **`W6-07` · Check-in view** · **Est** 2.5h · PRD US-601
+- [x] **`W6-08` · Self-appraisal view** · **Est** 3h · PRD US-701
   **Do:** Pre-populated with goals, targets, actuals, and computed score — never a blank page.
+  > **Note (W6-06, W6-07, W6-08):** the employee journey, 36 new web tests and 15 new core tests.
+  >
+  > **The direction control is the F-06 fix that the schema could not make.** Requiring the field stopped the
+  > *system* inferring it; a person who does not know what "Higher is better" does to their score is still
+  > guessing. It is a radio group rather than a select, so both options and both consequences are visible at
+  > once, and each explanation says what happens to the number — "Beating the target scores full marks" —
+  > with examples naming the goals it suits. `DIRECTION_EXPLANATIONS` lives in `@aura/core`, so the words a
+  > form uses and the words an email uses are the same words.
+  >
+  > **The check-in form shows the agreed figures as text.** The server whitelists two columns and the
+  > contract has no room for the rest, but a form that simply omitted target and weightage would look like it
+  > *could* change them. A test asserts the target renders as a `<dd>` and that no input for it exists,
+  > alongside one asserting the request body carries exactly three keys.
+  >
+  > **The self-appraisal is never blank.** Target, actual and computed score arrive filled in; the only empty
+  > fields are the ones only that person can fill. The score is stated twice — as a percentage and on the
+  > cycle's own scale — because 4.2 out of 5 is the number the manager's rating will be compared against.
+  >
+  > **Three real defects came out of writing the tests, and none were in the tests.**
+  >
+  > 1. **`signOut` cleared the session and then called `queryClient.clear()`**, which removed the entry it
+  >    had just written — and because the session query is still mounted, TanStack refetched it and the
+  >    signed-out user reappeared. Found by failing the logout request and looking for the name. Fixed by
+  >    dropping everything *except* the session first, then writing the null.
+  > 2. **`signOut` re-threw after clearing**, so every call site needed a `.catch` and the one that did not
+  >    surfaced as an unhandled rejection. That contradicted its own documented intent: if the local session
+  >    is gone, the sign-out succeeded from the only perspective that matters. It now never rejects, and the
+  >    server failure becomes a toast instead.
+  > 3. **All three pages seeded form state from a `useEffect`**, which React's lint rule flags as how
+  >    cascading re-renders start — and it is right, because an effect that sets state paints the empty form
+  >    first. Replaced by `useInitialisedFrom`, which adjusts state *during* render (React's documented
+  >    pattern) and seeds exactly once, so a background refetch cannot eat what someone is typing.
+  >
+  > **Two test-authoring mistakes, both the same shape.** `findByTestId('weightage-total')` and
+  > `findByRole('status')` each resolved against an element that exists *before* the data arrives — the meter
+  > at 0%, and the loading indicator, which legitimately shares `role="status"` with the locked banner. Both
+  > now wait for a field that only exists once loaded. The tests were wrong; the pages were not.
+  >
+  > **The web suite got a bounded worker pool.** It passed alone and failed inside `turbo run test` with
+  > "Failed to start forks worker" — a resource limit, not an assertion, and the least useful kind of red.
+
 - [ ] **`W6-09` · Manager queue with filter/sort/bulk** · **Est** 3h · PRD US-501
 - [ ] **`W6-10` · Manager sheet review & inline adjust** · **Est** 3h · PRD US-503
 - [ ] **`W6-11` · Manager rating view** · **Est** 3h · PRD US-702
