@@ -29,6 +29,7 @@ import {
   complianceRouter,
   escalationsRouter,
 } from './routes/governance.js';
+import { queueRouter } from './routes/queue.js';
 import { sharedGoalsRouter } from './routes/sharedGoals.js';
 import { sheetsRouter } from './routes/sheets.js';
 import { orgChartRouter, teamsRouter } from './routes/teams.js';
@@ -72,6 +73,9 @@ export const ROUTER_MOUNTS = [
      mounted under one. `mergeParams` on the child is what lets it read
      `:sheetId` back out of the mount path. */
   { prefix: '/sheets/:sheetId/comments', router: commentsRouter },
+  /* Not `/sheets/queue`: `GET /sheets/:cycleId` already claims every
+     single-segment path under that prefix. See the note in `routes/queue.ts`. */
+  { prefix: '/queue', router: queueRouter },
   { prefix: '/teams', router: teamsRouter },
   { prefix: '/org-chart', router: orgChartRouter },
   { prefix: '/shared-goals', router: sharedGoalsRouter },

@@ -94,6 +94,9 @@ const EXPECTED: Readonly<Record<string, Expectation>> = {
   'POST /sheets/:id/return': { access: 'guarded' },
   'POST /sheets/:id/adjust': { access: 'guarded' },
   'GET /sheets/:id/revisions': { access: 'guarded' },
+  'GET /sheets/:id/review': { access: 'guarded' },
+
+  'GET /queue': { access: 'guarded' },
 
   'GET /sheets/:sheetId/comments': { access: 'guarded' },
   'POST /sheets/:sheetId/comments': { access: 'guarded' },

@@ -32,6 +32,7 @@ import {
   listAuditQuerySchema,
   listCommentsQuerySchema,
   listEscalationsQuerySchema,
+  listSheetsQuerySchema,
   loginRequestSchema,
   managerRatingRequestSchema,
   orgChartQuerySchema,
@@ -167,6 +168,16 @@ export const ROUTE_DOCS: Readonly<Record<string, RouteDoc>> = {
     body: adjustWeightageRequestSchema,
   },
   'GET /sheets/:id/revisions': { summary: 'Every version of a sheet', tag: 'Approvals' },
+  'GET /sheets/:id/review': {
+    summary: "A report's sheet with its score, owner and check-in history",
+    tag: 'Approvals',
+  },
+
+  'GET /queue': {
+    summary: 'Everything in my reporting line awaiting action, most urgent first',
+    tag: 'Approvals',
+    query: listSheetsQuerySchema,
+  },
 
   'GET /sheets/:sheetId/comments': {
     summary: 'The discussion on a sheet',

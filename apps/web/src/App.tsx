@@ -21,6 +21,9 @@ import { CheckInPage } from './pages/CheckInPage.js';
 import { GoalsPage } from './pages/GoalsPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { Placeholder } from './pages/Placeholder.js';
+import { QueuePage } from './pages/QueuePage.js';
+import { RatingPage } from './pages/RatingPage.js';
+import { ReviewPage } from './pages/ReviewPage.js';
 
 /** Where a signed-in user lands, decided by what they are. */
 function Home() {
@@ -81,7 +84,25 @@ export function AppRoutes() {
         path="/queue"
         element={
           <RequireAuth roles={['MANAGER', 'HR_ADMIN', 'ORG_ADMIN']}>
-            <Placeholder title="Approval queue" task="W6-09" />
+            <QueuePage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/queue/:sheetId"
+        element={
+          <RequireAuth roles={['MANAGER', 'HR_ADMIN', 'ORG_ADMIN']}>
+            <ReviewPage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/queue/:sheetId/rating"
+        element={
+          <RequireAuth roles={['MANAGER', 'HR_ADMIN', 'ORG_ADMIN']}>
+            <RatingPage />
           </RequireAuth>
         }
       />

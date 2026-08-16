@@ -158,6 +158,8 @@ CI enforces the same gate on every push, so a bypassed local gate is caught befo
   > - `apps/web/src/pages` — unused catch bindings and dead state (F-14), a useless `progressFraction`
   >   assignment in the duplicated scoring code (F-07), and `react-hooks/immutability` on the fetch-in-effect
   >   pattern (F-12). Remove entries as **W6-06 … W6-11** land.
+  >   **Removed at W6-11.** The four `.jsx` pages the block covered were deleted in W6-01…W6-05 and the last
+  >   of their replacements landed with the manager journey, so the override matched nothing.
   >
   > One permanent override: `src/components/ui/**` allows `react-refresh/only-export-components`, since shadcn
   > exports a component and its cva variants from the same module upstream.
@@ -1903,10 +1905,52 @@ covering the happy path, validation failure, permission denial, and cross-org is
   > **The web suite got a bounded worker pool.** It passed alone and failed inside `turbo run test` with
   > "Failed to start forks worker" — a resource limit, not an assertion, and the least useful kind of red.
 
-- [ ] **`W6-09` · Manager queue with filter/sort/bulk** · **Est** 3h · PRD US-501
-- [ ] **`W6-10` · Manager sheet review & inline adjust** · **Est** 3h · PRD US-503
-- [ ] **`W6-11` · Manager rating view** · **Est** 3h · PRD US-702
+- [x] **`W6-09` · Manager queue with filter/sort/bulk** · **Est** 3h · PRD US-501
+- [x] **`W6-10` · Manager sheet review & inline adjust** · **Est** 3h · PRD US-503
+- [x] **`W6-11` · Manager rating view** · **Est** 3h · PRD US-702
   **Do:** Self-appraisal, computed score, and check-in history visible side by side while rating.
+  > **Note (W6-09, W6-10, W6-11):** the manager journey, 33 new web tests and 14 new API integration tests.
+  > Two endpoints had to be built first: **there was no way to list a manager's work and no way to read
+  > somebody else's sheet.** `GET /sheets/:cycleId` returns *your own* and nothing else, which is right for
+  > the employee pages and useless to a queue.
+  >
+  > **The queue is derived from the policy rather than from a rule beside it.** US-501 says "shows only
+  > direct reports" and `where: { managerId: actor.userId }` would satisfy that sentence. It would also be a
+  > *guess* at what W2-06 permits, and the two would disagree the first time a scope moved — showing rows
+  > whose buttons 403, or hiding work somebody was meant to do. So the walk gathers the whole reporting
+  > subtree and `can()` decides per row, using the same chain the endpoint rebuilds when the action arrives.
+  > That is why an indirect report's sheet carries `APPROVE` and not `RATE`, and neither fact is restated in
+  > the service: `APPROVE_GOAL_SHEET` is REPORTS, `RATE_REPORT` is DIRECT_REPORT. The page renders the
+  > `actions` it was sent and works nothing out for itself.
+  >
+  > **There is no bulk-approve endpoint, and that is the design.** Approving six sheets is six approvals —
+  > each snapshots its own sheet, writes its own audit row, notifies its own employee, and can fail on its
+  > own terms. One endpoint would have to invent a status code for "four of six"; `approveEach` issues them
+  > sequentially and returns one outcome per sheet, so the toast can say which two did not go through and
+  > why. `Promise.all` would reject on the first failure and lose the successes.
+  >
+  > **The check-in history is reconstructed from the audit trail, not from a second table.** Every check-in
+  > already writes an append-only row carrying the whole sheet before and after (W4-11). A parallel history
+  > table would be a copy kept in step by hand — and the copy is what rots, because the trail is written
+  > inside the same transaction as the change and a table added later would not be. Only the two fields a
+  > check-in may touch are diffed, because they are the only two it can have changed (F-04).
+  >
+  > **`null` and `''` are the same statement about achievement.** The first run of the history test found
+  > two changes where one was expected: a goal posted back as `''` had been stored as `null`, and comparing
+  > them literally made "cleared a field that was already empty" a history entry reading `— → —`. The
+  > normalisation is in the diff, not in the test.
+  >
+  > **`GET /queue` is mounted at its own prefix.** `GET /sheets/:cycleId` already owns every single-segment
+  > path under `/sheets`, so `GET /sheets/queue` would be read as a cycle named "queue" and answered with a
+  > 404 by the handler above it.
+  >
+  > **`parseQuery` moved into `validate.ts` and grew boolean coercion.** `awaitingMyAction` is a boolean and
+  > everything in a query string is a string, so the schema was rejecting the value it was written for. The
+  > local copy in `governance.ts` is gone — one coercion rule, and an empty `?status=` now reads as "no
+  > filter" rather than failing an enum.
+  >
+  > **The permission matrix caught both new routes before the tests did.** W3-09's gate fails the build on a
+  > route nobody classified, which is exactly what it is for.
 - [ ] **`W6-12` · Admin cycle setup wizard** · **Est** 3h · PRD US-201, 203, 204
 - [ ] **`W6-13` · Admin user management + CSV import** · **Est** 3h · PRD US-101, 205
   **Do:** Dry-run preview with row-level errors before commit.

@@ -26,6 +26,7 @@ import {
   returnSheet,
 } from '../services/approvals.js';
 import { reportingChain } from '../services/orgchart.js';
+import { checkInHistory } from '../services/queue.js';
 import { SheetStateError, recordCheckIn, saveDraft, submitSheet } from '../services/sheets.js';
 import { auditActor } from '../services/users.js';
 import { parseBody } from '../validate.js';
@@ -431,6 +432,73 @@ sheetsRouter.post(
       }
       throw error;
     }
+  }),
+);
+
+/**
+ * US-503, US-702 — somebody else's sheet, as a reviewer sees it.
+ *
+ * `GET /sheets/:cycleId` above returns *your own* sheet and nothing else, which
+ * is right for the employee pages and useless to a manager holding a queue of
+ * sheet ids. This is the reviewer's read: the goals with their weightages, the
+ * server-computed score, who it belongs to, and the check-in history behind the
+ * actuals — everything US-702 asks to be visible while rating, in one request
+ * rather than three the page would have to keep in step.
+ *
+ * Refusal is a 404, matching the revisions route below: a 403 would confirm
+ * that the id names a real sheet belonging to somebody the caller may not see.
+ */
+sheetsRouter.get(
+  '/:id/review',
+  authenticated(async (req, res) => {
+    const id = pathParam(req.params, 'id');
+    const found = await loadSheetWithChain(req, id);
+
+    if (found === null) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    if (
+      !can(req.actor, 'VIEW_GOAL_SHEET', {
+        orgId: req.actor.orgId,
+        subjectUserId: found.sheet.userId,
+        managerChainIds: found.managerChainIds,
+      })
+    ) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    const sheet = await req.db.goalSheet.findUniqueOrThrow({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+        cycleId: true,
+        status: true,
+        submittedAt: true,
+        approvedAt: true,
+        goals: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    const score = scoreSheet(
+      sheet.goals.map((goal) => ({
+        id: goal.id,
+        uom: goal.uom,
+        direction: goal.direction,
+        target: goal.target,
+        actualAchievement: goal.actualAchievement,
+        status: goal.status,
+        weightage: goal.weightage.toString(),
+      })),
+    );
+
+    const { user, ...rest } = sheet;
+
+    res.status(200).json({ sheet: rest, owner: user, score, checkIns: await checkInHistory(req.db, id) });
   }),
 );
 

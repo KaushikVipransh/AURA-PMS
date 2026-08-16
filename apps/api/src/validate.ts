@@ -68,3 +68,59 @@ export function parseBody<T extends z.ZodType>(
     },
   };
 }
+
+/**
+ * Turn one query-string value into the type a schema would expect of it.
+ *
+ * Everything in a query string is a string, so a schema asking for an integer
+ * or a boolean rejects the very values it was written for. Two shapes are
+ * coerced and nothing else is guessed at: a run of digits, and the two boolean
+ * literals. An ISO instant stays a string because `instantSchema` parses one.
+ */
+function coerce(value: string): unknown {
+  if (value === 'true' || value === 'false') {
+    return value === 'true';
+  }
+
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
+
+/**
+ * Parse a query string against a contract schema.
+ *
+ * Empty values are dropped rather than passed through, so `?status=` reads as
+ * "no status given" and any default on the schema applies — passing `''` would
+ * instead fail an enum and turn an empty filter box into a 400.
+ *
+ * Only keys the schema knows about survive its parse, which is the same
+ * "unknown keys are dropped, never trusted" rule `parseBody` relies on (F-04).
+ */
+export function parseQuery<T extends z.ZodType>(
+  schema: T,
+  query: unknown,
+): ParseResult<z.infer<T>> {
+  const raw = (query ?? {}) as Record<string, string | undefined>;
+  const coerced: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === undefined || value === '') {
+      continue;
+    }
+    coerced[key] = coerce(value);
+  }
+
+  const result = schema.safeParse(coerced);
+
+  if (result.success) {
+    return { ok: true, data: result.data };
+  }
+
+  return {
+    ok: false,
+    error: {
+      error: 'Validation failed',
+      detail: 'The query string did not match the expected shape.',
+      fields: fieldsFrom(result.error.issues),
+    },
+  };
+}

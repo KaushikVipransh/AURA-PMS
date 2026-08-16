@@ -21,7 +21,7 @@ import { requireAuth } from '../auth/index.js';
 import { complianceSummary, cycleAnalytics } from '../services/analytics.js';
 import { EscalationStateError, resolveEscalation } from '../services/escalations.js';
 import { auditActor } from '../services/users.js';
-import { parseBody } from '../validate.js';
+import { parseBody, parseQuery } from '../validate.js';
 
 function pathParam(params: Record<string, string | string[] | undefined>, key: string): string {
   const value = params[key];
@@ -37,29 +37,6 @@ function requestContext(req: AuthedRequest): { ip: string | undefined; userAgent
 
 /** Org-wide resources have no subject; the relationship is `SAME_ORG`. */
 const orgResource = (orgId: string) => ({ orgId, subjectUserId: null, managerChainIds: [] });
-
-/**
- * Parse a query string against a schema.
- *
- * Query values arrive as strings, so a schema expecting an integer needs them
- * coerced first. Only the keys the schema knows about are passed through, which
- * is the same "unknown keys are dropped, not trusted" rule the body parser
- * applies (F-04).
- */
-function parseQuery<T>(schema: { safeParse(value: unknown): { success: boolean; data?: T; error?: unknown } }, query: unknown) {
-  const raw = query as Record<string, string | undefined>;
-  const coerced: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(raw)) {
-    if (value === undefined || value === '') {
-      continue;
-    }
-    const asNumber = Number(value);
-    coerced[key] = value !== '' && Number.isFinite(asNumber) && /^\d+$/.test(value) ? asNumber : value;
-  }
-
-  return schema.safeParse(coerced);
-}
 
 export const analyticsRouter: Router = Router();
 
@@ -78,7 +55,7 @@ analyticsRouter.get(
 
     const parsed = parseQuery(analyticsQuerySchema, req.query);
 
-    if (!parsed.success || parsed.data === undefined) {
+    if (!parsed.ok) {
       res.status(400).json({ error: 'A valid cycleId is required.' });
       return;
     }
@@ -153,7 +130,7 @@ escalationsRouter.get(
 
     const parsed = parseQuery(listEscalationsQuerySchema, req.query);
 
-    if (!parsed.success || parsed.data === undefined) {
+    if (!parsed.ok) {
       res.status(400).json({ error: 'A valid cycleId is required.' });
       return;
     }
@@ -270,7 +247,7 @@ auditRouter.get(
 
     const parsed = parseQuery(listAuditQuerySchema, req.query);
 
-    if (!parsed.success || parsed.data === undefined) {
+    if (!parsed.ok) {
       res.status(400).json({ error: 'Invalid audit query.' });
       return;
     }
