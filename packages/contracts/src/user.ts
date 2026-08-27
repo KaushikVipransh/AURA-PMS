@@ -96,6 +96,14 @@ export const importUsersRequestSchema = z.object({
  * trips.
  */
 export const importUsersResponseSchema = z.object({
+  /**
+   * Whether this was the preview or the real thing.
+   *
+   * Carried in the response rather than assumed from the request, so a page
+   * showing "12 created" cannot be showing it about a dry run — which is the
+   * one confusion this feature's whole design is meant to prevent.
+   */
+  dryRun: z.boolean(),
   created: z.int().min(0),
   skipped: z.int().min(0),
   errors: z.array(

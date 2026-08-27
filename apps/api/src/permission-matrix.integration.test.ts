@@ -104,6 +104,8 @@ const EXPECTED: Readonly<Record<string, Expectation>> = {
   'DELETE /sheets/:sheetId/comments/:commentId': { access: 'guarded' },
 
   'POST /users/invite': { access: 'guarded' },
+  'GET /users': { access: 'guarded' },
+  'POST /users/import': { access: 'guarded' },
   'GET /users/:id': { access: 'guarded' },
   'POST /users/:id/deactivate': { access: 'guarded' },
 

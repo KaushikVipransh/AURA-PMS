@@ -1951,9 +1951,72 @@ covering the happy path, validation failure, permission denial, and cross-org is
   >
   > **The permission matrix caught both new routes before the tests did.** W3-09's gate fails the build on a
   > route nobody classified, which is exactly what it is for.
-- [ ] **`W6-12` · Admin cycle setup wizard** · **Est** 3h · PRD US-201, 203, 204
-- [ ] **`W6-13` · Admin user management + CSV import** · **Est** 3h · PRD US-101, 205
+- [x] **`W6-12` · Admin cycle setup wizard** · **Est** 3h · PRD US-201, 203, 204
+- [x] **`W6-13` · Admin user management + CSV import** · **Est** 3h · PRD US-101, 205
   **Do:** Dry-run preview with row-level errors before commit.
+  > **Note (W6-12, W6-13):** the administration journey, 53 new tests — 19 for the import planner, 15 for the
+  > CSV reader, 19 across the two pages — plus 14 new API integration tests. Three endpoints had to be built
+  > first: `GET /users`, `POST /users/import`, and nothing at all existed for either.
+  >
+  > **The import is split into a pure planner and a committer, and the dry run is the planner without the
+  > commit.** That is what makes the preview trustworthy: it is not a second code path that approximates the
+  > real one, it is the same function answering the same question. `planImport` takes the rows and what the
+  > organization already holds and returns every row classified; `commitImport` writes a plan. One flag on one
+  > request decides whether the second step happens.
+  >
+  > **"Partial import never leaves a broken org chart" is the criterion that shaped it.** A loop that creates
+  > rows one at a time and stops at the first bad one satisfies "row-level errors" and violates this — it
+  > leaves reports whose manager was on the line below the failure. So a row whose manager could not be
+  > imported is itself an error, to a fixpoint: erroring a row orphans its reports, and erroring those orphans
+  > theirs. A four-deep branch fails as a branch, while an unrelated department still imports.
+  >
+  > **Rows that manage each other in a circle are refused by peeling.** A row is *rooted* if it has no
+  > manager, or its manager already exists, or its manager is rooted; whatever is still standing when that
+  > stops growing is in a loop or hanging off one. Nothing in the schema forbids `A → B → A` — the recursive
+  > walks survive it because they carry a visited set — but the chart would be nonsense and nobody would ever
+  > be told who caused it.
+  >
+  > **The CSV parser is written rather than imported.** A dependency in the browser bundle for a format read
+  > in one place is a poor trade, and the part people actually get wrong is forty lines: `split(',')` turns
+  > `"Sharma, Priya"` into two columns and shifts every field after it, producing an import that succeeds and
+  > is wrong. Quoted commas, embedded newlines, doubled quotes and CRLF each have a test. Parsing stops at
+  > structure — whether `role` names a real role is the contract schema's question, server-side.
+  >
+  > **Line numbers are the spreadsheet's.** The parser numbers data rows from 2 because row 1 is the header,
+  > and the page adds one to the server's data-row index for the same reason. Reporting "row 3" for something
+  > somebody sees on line 4 is a small cruelty in a file of three hundred.
+  >
+  > **A preview is discarded the moment the file changes.** The import button is disabled until a dry run has
+  > come back *for the text currently in the box*; a preview of a file nobody is importing any more is the
+  > most convincing kind of wrong.
+  >
+  > **W6-12 is the screen that replaces `GLOBAL_ACTIVE_PERIOD`.** The prototype had one module-level string
+  > whose setter rewrote the period on every sheet ever created (F-03). A cycle here carries its own phases,
+  > its own snapshotted rating scale (US-203) and its own escalation thresholds, and creating one cannot touch
+  > another. Resizing the scale regenerates every label rather than patching, because a grown scale with
+  > unlabelled points is refused by the schema and stale labels for points that no longer exist are worse.
+  >
+  > **One real defect, and it was in the page.** `findPhaseOverlaps` asserts its inputs are valid dates and
+  > throws a `RangeError` otherwise — right for a domain function, fatal during a render. An emptied date
+  > field arrived as the string `"T00:00:00.000Z"`, so **clearing a date crashed the whole setup page**.
+  > Fixed at the source (`asInstant` returns `''` for an empty field) and defended at the call site (only
+  > fully-dated phases are compared); the half-filled phase is reported by `cycleBlockers` instead, which is
+  > where a person is told about it.
+  >
+  > **The W4-02 audit detector was matching `Map.delete`.** `planImport` deletes from a map of candidate rows
+  > and was reported as an unaudited database writer. The tempting fix is an exception list, which is how a
+  > completeness test stops being one; instead the pattern now requires Prisma's actual shape —
+  > `<client>.<model>.<verb>(`, two dots — with the raw escapes matched separately because they hang directly
+  > off the client. Verified against every service file: the same eleven still read as writers, and
+  > `analytics.ts`, `orgchart.ts` and `queue.ts` still read as read-only. Two fixtures pin both directions.
+  >
+  > **A test-harness mistake of mine, and the fix is general.** The web `serve()` helper matched URL fragments
+  > in insertion order, so `/users` answered the `/users/import` call with the roster — six tests failed at
+  > once with `errors` undefined inside the page. It now matches the **longest** fragment first, which removes
+  > the trap rather than asking every caller to remember it.
+  >
+  > **`Placeholder` is no longer routed anywhere.** Every route it stood in for is a real page; it survives
+  > only as a fixture in `LoginPage.test.tsx`, where it stands in for a redirect target.
 - [ ] **`W6-14` · Calibration view** · **Est** 3h · PRD US-801, 802
 - [ ] **`W6-15` · Analytics dashboard with charts** · **Est** 2.5h · PRD US-1001
   **Do:** Recharts replacing the prototype's key-value lists.

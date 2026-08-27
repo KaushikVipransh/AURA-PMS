@@ -9,14 +9,15 @@
  */
 
 import { can, type Actor, type PolicyAction } from '@aura/core';
-import { inviteUserRequestSchema } from '@aura/contracts';
+import { importUsersRequestSchema, inviteUserRequestSchema, listUsersQuerySchema } from '@aura/contracts';
 import { Router, type Response } from 'express';
 
 import { authenticated, type AuthedRequest } from '../auth/authenticated.js';
 import { requireAuth } from '../auth/index.js';
 import { reportingChain } from '../services/orgchart.js';
 import { auditActor, deactivateUser, inviteUser } from '../services/users.js';
-import { parseBody } from '../validate.js';
+import { commitImport, planImport } from '../services/userImport.js';
+import { parseBody, parseQuery } from '../validate.js';
 
 /**
  * Read a path parameter as a single string.
@@ -133,6 +134,131 @@ usersRouter.post(
     });
 
     res.status(201).json({ user: invited });
+  }),
+);
+
+/**
+ * US-101 — everyone in the organization, for the administration screen.
+ *
+ * Registered before `/:id`, which would otherwise claim the empty path's
+ * sibling routes — Express matches in registration order, and `/users/import`
+ * arriving at the read-one handler as a user called "import" is the same trap
+ * `GET /queue` avoided by taking its own prefix.
+ *
+ * `VIEW_USER` is asked once, against the organization rather than a person.
+ * That is honest for a list: it is the same question `ANYONE_IN_ORG` answers,
+ * and asking it per row would return a half-list that no page could paginate.
+ * A manager therefore gets 403 here and uses `/org-chart`, which is scoped to
+ * their line by construction.
+ */
+usersRouter.get(
+  '/',
+  authenticated(async (req, res) => {
+    if (!allows(req.actor, 'VIEW_USER', { orgId: req.actor.orgId, id: null }, [])) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    const parsed = parseQuery(listUsersQuerySchema, req.query);
+
+    if (!parsed.ok) {
+      res.status(400).json(parsed.error);
+      return;
+    }
+
+    const query = parsed.data;
+
+    const rows = await req.db.user.findMany({
+      where: {
+        ...(query.role === undefined ? {} : { roles: { has: query.role } }),
+        ...(query.status === undefined ? {} : { status: query.status }),
+        ...(query.managerId === undefined ? {} : { managerId: query.managerId }),
+        /* Case-insensitive on both columns. Searching a roster for "priya" and
+           being told there is no such person because the row says "Priya" is
+           the kind of thing that makes people stop using the search box. */
+        ...(query.search === undefined
+          ? {}
+          : {
+              OR: [
+                { name: { contains: query.search, mode: 'insensitive' as const } },
+                { email: { contains: query.search, mode: 'insensitive' as const } },
+              ],
+            }),
+      },
+      // One past the page, so "is there more" is answered without a second
+      // count over the same predicate.
+      take: query.limit + 1,
+      ...(query.cursor === undefined ? {} : { cursor: { id: query.cursor }, skip: 1 }),
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        orgId: true,
+        name: true,
+        email: true,
+        roles: true,
+        status: true,
+        managerId: true,
+        teamId: true,
+        timeZone: true,
+      },
+    });
+
+    const page = rows.slice(0, query.limit);
+
+    res.status(200).json({
+      items: page,
+      nextCursor: rows.length > query.limit ? (page[page.length - 1]?.id ?? null) : null,
+    });
+  }),
+);
+
+/**
+ * US-205 — bulk import, with a dry run that is the same code path.
+ *
+ * `dryRun` decides whether the plan is committed and nothing else. A preview
+ * computed by one function and a commit performed by another is a preview that
+ * can be wrong, and the only time anybody finds out is after they trusted it.
+ *
+ * The response is 200 for both, including when every row failed: the request
+ * was understood and answered in full. A 4xx would be the server saying it
+ * could not process the file, when what it did was process the file and report
+ * on it row by row.
+ */
+usersRouter.post(
+  '/import',
+  authenticated(async (req, res) => {
+    if (!allows(req.actor, 'BULK_IMPORT_USERS', { orgId: req.actor.orgId, id: null }, [])) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    const parsed = parseBody(importUsersRequestSchema, req.body);
+
+    if (!parsed.ok) {
+      res.status(400).json(parsed.error);
+      return;
+    }
+
+    const [users, teams] = await Promise.all([
+      req.db.user.findMany({ select: { id: true, email: true } }),
+      req.db.team.findMany({ select: { id: true, name: true } }),
+    ]);
+
+    const plan = planImport(parsed.data.rows, { users, teams });
+
+    if (parsed.data.dryRun) {
+      res.status(200).json({
+        dryRun: true,
+        created: plan.creates.length,
+        skipped: plan.skipped.length,
+        errors: plan.errors,
+      });
+      return;
+    }
+
+    const written = await commitImport(req.db, auditActor(req.actor, requestContext(req)), plan);
+
+    res.status(200).json({ dryRun: false, ...written, errors: plan.errors });
   }),
 );
 

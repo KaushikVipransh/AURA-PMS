@@ -28,11 +28,13 @@ import {
   createSharedGoalRequestSchema,
   createTeamRequestSchema,
   forgotPasswordRequestSchema,
+  importUsersRequestSchema,
   inviteUserRequestSchema,
   listAuditQuerySchema,
   listCommentsQuerySchema,
   listEscalationsQuerySchema,
   listSheetsQuerySchema,
+  listUsersQuerySchema,
   loginRequestSchema,
   managerRatingRequestSchema,
   orgChartQuerySchema,
@@ -102,6 +104,16 @@ export const ROUTE_DOCS: Readonly<Record<string, RouteDoc>> = {
 
   'GET /me': { summary: 'The signed-in user', tag: 'Users' },
 
+  'GET /users': {
+    summary: 'Everyone in the organization, filtered and paged',
+    tag: 'Users',
+    query: listUsersQuerySchema,
+  },
+  'POST /users/import': {
+    summary: 'Bulk-import users from a spreadsheet, with a dry run',
+    tag: 'Users',
+    body: importUsersRequestSchema,
+  },
   'POST /users/invite': {
     summary: 'Invite someone by email',
     tag: 'Users',

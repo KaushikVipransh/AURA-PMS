@@ -18,12 +18,13 @@ import { AuthProvider } from './lib/auth.js';
 import { createQueryClient } from './lib/query.js';
 import { AppraisalPage } from './pages/AppraisalPage.js';
 import { CheckInPage } from './pages/CheckInPage.js';
+import { CycleSetupPage } from './pages/CycleSetupPage.js';
 import { GoalsPage } from './pages/GoalsPage.js';
 import { LoginPage } from './pages/LoginPage.js';
-import { Placeholder } from './pages/Placeholder.js';
 import { QueuePage } from './pages/QueuePage.js';
 import { RatingPage } from './pages/RatingPage.js';
 import { ReviewPage } from './pages/ReviewPage.js';
+import { UsersPage } from './pages/UsersPage.js';
 
 /** Where a signed-in user lands, decided by what they are. */
 function Home() {
@@ -111,7 +112,16 @@ export function AppRoutes() {
         path="/admin"
         element={
           <RequireAuth roles={['HR_ADMIN', 'ORG_ADMIN']}>
-            <Placeholder title="Administration" task="W6-12, W6-13" />
+            <UsersPage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/cycles"
+        element={
+          <RequireAuth roles={['HR_ADMIN', 'ORG_ADMIN']}>
+            <CycleSetupPage />
           </RequireAuth>
         }
       />

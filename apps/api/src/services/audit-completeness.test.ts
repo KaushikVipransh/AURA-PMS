@@ -24,8 +24,22 @@ import { describe, expect, it } from 'vitest';
 const SERVICES_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 /** Prisma write verbs. A call to any of these is a mutation. */
+/**
+ * A write, recognised by Prisma's shape rather than by verb alone.
+ *
+ * `<client>.<model>.<verb>(` — two dots — is what every model write in this
+ * codebase looks like, and requiring both is what tells `tx.user.delete(...)`
+ * from `candidates.delete(...)` on a plain `Map`. The verb-only version of
+ * this pattern flagged `planImport`, a pure function that touches no database
+ * at all, which is the false positive that makes people start adding
+ * exceptions to a completeness test — and an exception list is how it stops
+ * being one.
+ *
+ * The raw escapes are matched separately: they hang directly off the client
+ * and so have only one dot.
+ */
 const WRITE_CALLS =
-  /\.(create|createMany|createManyAndReturn|update|updateMany|upsert|delete|deleteMany|executeRaw|executeRawUnsafe)\s*\(/;
+  /\.\w+\.(create|createMany|createManyAndReturn|update|updateMany|upsert|delete|deleteMany)\s*\(|\.\$executeRaw(Unsafe)?\s*\(/;
 
 /** Files that are infrastructure rather than services. */
 const NOT_A_SERVICE = new Set(['withAudit.ts']);
@@ -202,6 +216,39 @@ export async function createThing(db, actor) {
 
   it('flags an unwrapped write', () => {
     expect(offendersIn(unaudited)).toEqual(['createThing']);
+  });
+
+  it('flags an unwrapped raw escape, which has only one dot', () => {
+    expect(
+      offendersIn(`
+export async function wipe(db) {
+  return db.$executeRawUnsafe('DELETE FROM things');
+}
+`),
+    ).toEqual(['wipe']);
+  });
+
+  it('does not mistake a Map or a Set for a table', () => {
+    /*
+     * `planImport` is a pure planner that deletes from a `Map` of candidate
+     * rows. Under the verb-only pattern it was reported as an unaudited
+     * writer — and the tempting fix, an exception list, is how a completeness
+     * test stops being one.
+     */
+    expect(
+      offendersIn(`
+export function planRows(rows) {
+  const candidates = new Map();
+  const seen = new Set();
+
+  candidates.delete('a');
+  seen.delete('b');
+  rows.forEach((row) => candidates.set(row.id, row));
+
+  return [...candidates.values()];
+}
+`),
+    ).toEqual([]);
   });
 
   it('accepts a wrapped one', () => {
