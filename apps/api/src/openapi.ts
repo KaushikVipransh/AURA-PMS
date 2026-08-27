@@ -33,9 +33,11 @@ import {
   listAuditQuerySchema,
   listCommentsQuerySchema,
   listEscalationsQuerySchema,
+  listNotificationsQuerySchema,
   listSheetsQuerySchema,
   listUsersQuerySchema,
   loginRequestSchema,
+  markNotificationsReadRequestSchema,
   managerRatingRequestSchema,
   orgChartQuerySchema,
   releaseResultsRequestSchema,
@@ -183,6 +185,17 @@ export const ROUTE_DOCS: Readonly<Record<string, RouteDoc>> = {
   'GET /sheets/:id/review': {
     summary: "A report's sheet with its score, owner and check-in history",
     tag: 'Approvals',
+  },
+
+  'GET /notifications': {
+    summary: 'My in-app inbox, with its unread count',
+    tag: 'Notifications',
+    query: listNotificationsQuerySchema,
+  },
+  'POST /notifications/read': {
+    summary: 'Mark notifications read, individually or in bulk',
+    tag: 'Notifications',
+    body: markNotificationsReadRequestSchema,
   },
 
   'GET /queue': {

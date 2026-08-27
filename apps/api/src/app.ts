@@ -29,6 +29,7 @@ import {
   complianceRouter,
   escalationsRouter,
 } from './routes/governance.js';
+import { notificationsRouter } from './routes/notifications.js';
 import { queueRouter } from './routes/queue.js';
 import { sharedGoalsRouter } from './routes/sharedGoals.js';
 import { sheetsRouter } from './routes/sheets.js';
@@ -85,6 +86,7 @@ export const ROUTER_MOUNTS = [
   { prefix: '/compliance', router: complianceRouter },
   { prefix: '/escalations', router: escalationsRouter },
   { prefix: '/audit', router: auditRouter },
+  { prefix: '/notifications', router: notificationsRouter },
 ] as const;
 
 export function createApp(): Express {

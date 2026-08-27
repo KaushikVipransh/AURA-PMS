@@ -2065,8 +2065,46 @@ covering the happy path, validation failure, permission denial, and cross-org is
   > `@aura/contracts` lost its `vitest` binary and the gate failed on a module-not-found that had nothing to do
   > with any code. A plain `pnpm install` restored it. Worth knowing before Wave 7 automates dependency
   > changes in CI.
-- [ ] **`W6-17` · Audit log viewer with diff** · **Est** 2.5h · PRD US-1102, 1103
-- [ ] **`W6-18` · Notification inbox** · **Est** 2h · PRD US-1201
+- [x] **`W6-17` · Audit log viewer with diff** · **Est** 2.5h · PRD US-1102, 1103
+- [x] **`W6-18` · Notification inbox** · **Est** 2h · PRD US-1201
+  > **Note (W6-17, W6-18):** 32 new web tests and 13 new API integration tests. W6-18 needed an API that did
+  > not exist — the contracts for it were written in W3-01 and no route ever consumed them, so
+  > `GET /notifications` and `POST /notifications/read` were built here.
+  >
+  > **Notifications are rendered on read, not on write.** The row stores a dotted type and a payload; the
+  > words come from `NOTIFICATION_TEMPLATES` when somebody asks. Storing the rendered sentence would freeze
+  > the wording of every notification ever sent — fixing a typo would fix it only for the future, and the same
+  > event would read differently depending on when it happened. It also means the inbox and the email about
+  > one event say the same thing, because there is one place the words live.
+  >
+  > **An unrenderable notification is shown, not hidden.** `renderNotification` throws on an unknown type so a
+  > *job* fails loudly rather than sending an empty message — but here the row already exists, and dropping it
+  > would silently shorten somebody's inbox. It is listed with its type as the subject, which is honest and
+  > findable: the type is the bug report.
+  >
+  > **Opening the inbox marks nothing read**, and a test pins that. "Read" means somebody said they had dealt
+  > with it; a page that clears its own badge on render turns the badge into decoration. The unread count is a
+  > separate `count()` over every unread row rather than the length of the page — a badge showing 1 when there
+  > are 200 is worse than no badge.
+  >
+  > **Marking read is not audited.** The trail records changes to the record of what happened (US-1101);
+  > "Priya opened her inbox" is not one of those, and a trail filled with read receipts is a trail nobody
+  > reads. A test asserts no audit row is written.
+  >
+  > **The audit viewer's whole feature is the diff.** Two JSON blobs side by side is what most audit viewers
+  > show, and it makes the reader play spot-the-difference between two timestamps that differ in the
+  > milliseconds. `diffFields` returns only what changed, tells a field being *set* from a field being
+  > *cleared*, renders objects as JSON rather than `[object Object]`, and offers the unchanged fields behind a
+  > second toggle. A create has no `before` and reads as every field added; a delete is the mirror. Neither
+  > needed a special case.
+  >
+  > **There is no write path on the audit page and there never will be** — no edit, no delete, no "correct
+  > this entry", and a test asserts the absence. An audit trail somebody can tidy is not evidence, and the API
+  > has no endpoint for it either. An empty result says "none happened", not "none survived".
+  >
+  > **`goalsheet.approve` became "approved a sheet".** The mapping is exhaustive over the verbs the services
+  > actually write, and an unknown action falls back to the raw string rather than to a guess — a wrong
+  > sentence about an audit record is worse than a technical one.
 - [ ] **`W6-19` · Accessibility & responsive pass** · **Est** 3h
   **Do:** Focus states, form labels, ARIA on custom controls, contrast, keyboard navigation, table behaviour on
   narrow screens.

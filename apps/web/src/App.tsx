@@ -18,11 +18,13 @@ import { AuthProvider } from './lib/auth.js';
 import { createQueryClient } from './lib/query.js';
 import { AnalyticsPage } from './pages/AnalyticsPage.js';
 import { AppraisalPage } from './pages/AppraisalPage.js';
+import { AuditPage } from './pages/AuditPage.js';
 import { CalibrationPage } from './pages/CalibrationPage.js';
 import { CheckInPage } from './pages/CheckInPage.js';
 import { CompliancePage } from './pages/CompliancePage.js';
 import { CycleSetupPage } from './pages/CycleSetupPage.js';
 import { GoalsPage } from './pages/GoalsPage.js';
+import { InboxPage } from './pages/InboxPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { QueuePage } from './pages/QueuePage.js';
 import { RatingPage } from './pages/RatingPage.js';
@@ -152,6 +154,25 @@ export function AppRoutes() {
         element={
           <RequireAuth roles={['HR_ADMIN', 'ORG_ADMIN']}>
             <CompliancePage />
+          </RequireAuth>
+        }
+      />
+
+      {/* Everybody has an inbox; it is about them, not about the org. */}
+      <Route
+        path="/inbox"
+        element={
+          <RequireAuth>
+            <InboxPage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/audit"
+        element={
+          <RequireAuth roles={['HR_ADMIN', 'ORG_ADMIN']}>
+            <AuditPage />
           </RequireAuth>
         }
       />
