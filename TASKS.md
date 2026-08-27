@@ -2017,10 +2017,54 @@ covering the happy path, validation failure, permission denial, and cross-org is
   >
   > **`Placeholder` is no longer routed anywhere.** Every route it stood in for is a real page; it survives
   > only as a fixture in `LoginPage.test.tsx`, where it stands in for a redirect target.
-- [ ] **`W6-14` · Calibration view** · **Est** 3h · PRD US-801, 802
-- [ ] **`W6-15` · Analytics dashboard with charts** · **Est** 2.5h · PRD US-1001
+- [x] **`W6-14` · Calibration view** · **Est** 3h · PRD US-801, 802
+- [x] **`W6-15` · Analytics dashboard with charts** · **Est** 2.5h · PRD US-1001
   **Do:** Recharts replacing the prototype's key-value lists.
-- [ ] **`W6-16` · Compliance & escalation board** · **Est** 2.5h · PRD US-903, 904
+- [x] **`W6-16` · Compliance & escalation board** · **Est** 2.5h · PRD US-903, 904
+  > **Note (W6-14, W6-15, W6-16):** 23 new web tests. **No API work at all** — W4-17, W4-18 and W4-20 already
+  > answered every question these three screens ask, which is what a wave boundary is supposed to feel like.
+  >
+  > **Every chart carries one series, and that is a decision rather than a limitation.** The job in all five is
+  > *compare magnitude within a category* — how many goals per thrust area, how many people per rating point —
+  > so length carries the number and colour carries nothing. A categorical palette would assign identity to
+  > things whose identity is already written on the axis, and it is how a chart ends up implying that "Revenue"
+  > and "Quality" are opposing teams. It also removes a whole class of accessibility problem: with one series
+  > there is no colour pair to tell apart, so no colour-vision deficiency can make two bars ambiguous.
+  >
+  > **The colours were validated, not chosen by eye.** `#2a78d6` clears 3:1 on white (4.06:1, measured). The
+  > escalation tiers use the fixed status palette, two steps of which sit below 3:1 on a light surface *by
+  > design* — the documented mitigation is that a status colour never carries meaning alone, so every tier
+  > badge on the board names its tier in words beside the colour, and a test asserts the words.
+  >
+  > **Not everything became a chart.** Totals are stat tiles, because a single value with no distribution
+  > behind it is a number, not a shape. Compliance ratios are meters, because "142 of 180" is one ratio against
+  > one limit and a one-bar bar chart is more furniture than that deserves — the prototype's key-value list
+  > made the reader do the division; the meter states 79%, the fraction, and an `aria-valuenow`. Per-manager
+  > means are a table, because there can be dozens of managers and the reader is looking for a name.
+  >
+  > **Every chart ships its table.** Not a fallback — the chart is the fast read and the table is the exact
+  > one. The SVG is `aria-hidden` and the table is the screen-reader path, which is also why the tests assert
+  > on the table: a Recharts SVG in jsdom has no layout, so its bar geometry means nothing, and asserting on
+  > `<path d="…">` would only check that Recharts is Recharts.
+  >
+  > **Outliers are named, not coloured.** A manager whose mean sits far from the organization's gets the word
+  > "Outlier" and the size of the gap — because the reader's next action is to ask that person about it, and
+  > "the reddish row" is not something you can put in a meeting invitation. The server decides who qualifies
+  > (`OUTLIER_FRACTION`, a fraction of the scale's range rather than a fixed number of points), so the page and
+  > the API cannot hold different opinions.
+  >
+  > **The release refusal *is* the pre-release report US-803 asks for.** The server already computes the list
+  > of unrated appraisals in order to decide it must refuse, so the page renders that list from the 422 rather
+  > than calling a preview endpoint that could only disagree with the thing that actually decides.
+  >
+  > **A test of mine was ambiguous, and the page was right both times.** `findByText('Escalated to the
+  > manager')` matched the tier badge *and* the tier filter's option — and a filter that named the tier
+  > differently from the badge would be its own bug. Scoped to the table.
+  >
+  > **`pnpm --filter web add recharts` left the other workspace packages' `node_modules` incomplete** —
+  > `@aura/contracts` lost its `vitest` binary and the gate failed on a module-not-found that had nothing to do
+  > with any code. A plain `pnpm install` restored it. Worth knowing before Wave 7 automates dependency
+  > changes in CI.
 - [ ] **`W6-17` · Audit log viewer with diff** · **Est** 2.5h · PRD US-1102, 1103
 - [ ] **`W6-18` · Notification inbox** · **Est** 2h · PRD US-1201
 - [ ] **`W6-19` · Accessibility & responsive pass** · **Est** 3h

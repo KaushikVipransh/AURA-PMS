@@ -16,8 +16,11 @@ import { RequireAuth } from './components/RequireAuth.js';
 import { useAuth } from './lib/auth-context.js';
 import { AuthProvider } from './lib/auth.js';
 import { createQueryClient } from './lib/query.js';
+import { AnalyticsPage } from './pages/AnalyticsPage.js';
 import { AppraisalPage } from './pages/AppraisalPage.js';
+import { CalibrationPage } from './pages/CalibrationPage.js';
 import { CheckInPage } from './pages/CheckInPage.js';
+import { CompliancePage } from './pages/CompliancePage.js';
 import { CycleSetupPage } from './pages/CycleSetupPage.js';
 import { GoalsPage } from './pages/GoalsPage.js';
 import { LoginPage } from './pages/LoginPage.js';
@@ -122,6 +125,33 @@ export function AppRoutes() {
         element={
           <RequireAuth roles={['HR_ADMIN', 'ORG_ADMIN']}>
             <CycleSetupPage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/calibration"
+        element={
+          <RequireAuth roles={['HR_ADMIN', 'ORG_ADMIN']}>
+            <CalibrationPage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/analytics"
+        element={
+          <RequireAuth roles={['HR_ADMIN', 'ORG_ADMIN']}>
+            <AnalyticsPage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/compliance"
+        element={
+          <RequireAuth roles={['HR_ADMIN', 'ORG_ADMIN']}>
+            <CompliancePage />
           </RequireAuth>
         }
       />
